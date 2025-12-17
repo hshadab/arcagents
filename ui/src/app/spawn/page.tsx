@@ -7,23 +7,8 @@ import Link from 'next/link';
 import { SpawnForm } from '@/components/SpawnForm';
 import type { X402Service, ServiceCategory } from '@arc-agent/sdk';
 
-// Coinbase Bazaar API endpoint
-const BAZAAR_API = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources';
-
-// Map Bazaar API response to our X402Service type
-function mapBazaarResource(resource: any): X402Service {
-  return {
-    url: resource.url || resource.endpoint || '',
-    name: resource.name || resource.title || 'Unknown Service',
-    description: resource.description || '',
-    price: resource.price?.amount || resource.pricing?.perRequest || '0',
-    priceAtomic: resource.price?.atomicAmount || '0',
-    asset: resource.price?.asset || resource.pricing?.asset || 'USDC',
-    network: 'Arc Testnet',
-    payTo: resource.payTo || resource.paymentAddress || '0x0000000000000000000000000000000000000000',
-    category: mapCategory(resource.category || resource.type),
-  };
-}
+// Use the same API proxy as ServiceList for consistency
+const BAZAAR_API = '/api/bazaar';
 
 function mapCategory(cat: string | undefined): ServiceCategory {
   if (!cat) return 'api';
@@ -34,6 +19,28 @@ function mapCategory(cat: string | undefined): ServiceCategory {
   if (lower.includes('storage') || lower.includes('ipfs')) return 'storage';
   if (lower.includes('oracle') || lower.includes('price')) return 'oracle';
   return 'api';
+}
+
+// Map service from API response (matches ServiceList mapping)
+function mapServiceResponse(item: any): X402Service | null {
+  try {
+    const url = item.url || item.resource || '';
+    if (!url) return null;
+
+    return {
+      url,
+      name: item.name || 'Unknown Service',
+      description: item.description || '',
+      price: item.price || '0',
+      priceAtomic: item.priceAtomic || '0',
+      asset: item.asset || 'USDC',
+      network: 'Arc Testnet',
+      payTo: item.payTo || '0x0000000000000000000000000000000000000000',
+      category: mapCategory(item.category),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function SpawnPageContent() {
@@ -51,23 +58,66 @@ function SpawnPageContent() {
     }
 
     if (serviceUrl) {
-      // Fetch service details from Bazaar API
+      // Fetch service details from local API (same as ServiceList)
       const fetchService = async () => {
         try {
-          const apiKey = process.env.NEXT_PUBLIC_CDP_API_KEY;
-          const headers: HeadersInit = { 'Content-Type': 'application/json' };
-          if (apiKey) headers['X-API-Key'] = apiKey;
-
-          const response = await fetch(BAZAAR_API, { method: 'GET', headers });
+          const response = await fetch(BAZAAR_API);
           if (response.ok) {
             const data = await response.json();
-            const resources = data.resources || data.data || [];
-            const mapped = resources.map(mapBazaarResource);
-            const found = mapped.find((s: X402Service) => s.url === serviceUrl);
-            setSelectedService(found || null);
+            const items = data.resources || data.items || data.data || [];
+
+            // Map items and find matching service
+            const mapped = items
+              .map(mapServiceResponse)
+              .filter(Boolean) as X402Service[];
+
+            // Find by exact URL match
+            let found = mapped.find((s: X402Service) => s.url === serviceUrl);
+
+            // If not found, try URL decoding in case of encoding mismatch
+            if (!found) {
+              const decodedUrl = decodeURIComponent(serviceUrl);
+              found = mapped.find((s: X402Service) =>
+                s.url === decodedUrl || decodeURIComponent(s.url) === decodedUrl
+              );
+            }
+
+            if (found) {
+              setSelectedService(found);
+            } else {
+              console.error('Service not found in Bazaar:', serviceUrl);
+              // Create a minimal service object from the URL
+              setSelectedService({
+                url: serviceUrl,
+                name: new URL(serviceUrl).pathname.split('/').pop() || 'Service',
+                description: `x402 service at ${new URL(serviceUrl).hostname}`,
+                price: '0.01',
+                priceAtomic: '10000',
+                asset: 'USDC',
+                network: 'Arc Testnet',
+                payTo: '0x0000000000000000000000000000000000000000',
+                category: 'api',
+              });
+            }
           }
         } catch (err) {
           console.error('Failed to fetch service:', err);
+          // Fallback: create service from URL
+          try {
+            setSelectedService({
+              url: serviceUrl,
+              name: new URL(serviceUrl).pathname.split('/').pop() || 'Service',
+              description: `x402 service at ${new URL(serviceUrl).hostname}`,
+              price: '0.01',
+              priceAtomic: '10000',
+              asset: 'USDC',
+              network: 'Arc Testnet',
+              payTo: '0x0000000000000000000000000000000000000000',
+              category: 'api',
+            });
+          } catch {
+            // Invalid URL
+          }
         } finally {
           setLoading(false);
         }
