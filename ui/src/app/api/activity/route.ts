@@ -19,6 +19,8 @@ interface ExecutionLog {
   error?: string;
   durationMs: number;
   response?: unknown;
+  serviceResponse?: unknown;  // Full service response data
+  scheduledExecution?: boolean;  // Whether this was a scheduled run
 }
 
 /**

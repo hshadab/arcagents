@@ -25,13 +25,13 @@ import {
 const steps = [
   {
     icon: Wallet,
-    title: '1. Connect Coinbase Wallet',
-    description: 'Connect with Coinbase Wallet to interact with Arc. Coinbase Smart Wallet is recommended for the best x402 experience.',
+    title: '1. Enter Your Wallet Address',
+    description: 'Any EVM-compatible wallet address works. No wallet connection needed - just paste your address.',
     details: [
-      'Click the "Connect Wallet" button in the header',
-      'Select Coinbase Wallet and approve the connection',
-      'You\'ll be connected to Arc Testnet automatically',
-      'Get testnet USDC for funding your agents',
+      'Click "Enter Wallet" in the top right header',
+      'Paste any Ethereum address (MetaMask, Coinbase Wallet, Rainbow, etc.)',
+      'Your address is saved locally for convenience',
+      'Use Circle Faucet to get testnet USDC on Arc Testnet',
     ],
     color: 'from-blue-400 to-blue-600',
   },
@@ -61,10 +61,11 @@ const steps = [
   {
     icon: DollarSign,
     title: '4. Fund Your Agent',
-    description: 'Deposit USDC to your agent\'s treasury. It handles all payments autonomously.',
+    description: 'Send USDC to your agent\'s wallet using Circle Faucet (testnet) or direct transfer.',
     details: [
-      'Send USDC to your agent\'s wallet address',
-      'Set a pause threshold to prevent overdrafts',
+      'Copy your agent\'s wallet address after creation',
+      'Go to faucet.circle.com and select "Arc Testnet"',
+      'Paste the agent wallet address and request USDC',
       'Monitor balance in the "My Agents" dashboard',
     ],
     color: 'from-green-400 to-green-600',

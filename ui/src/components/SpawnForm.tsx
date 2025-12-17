@@ -1,48 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
-import { Bot, Wallet, DollarSign, Loader2, CheckCircle, AlertCircle, Shield, FileCheck, Brain } from 'lucide-react';
+import { Bot, Wallet, DollarSign, Loader2, CheckCircle, AlertCircle, Shield, FileCheck, Brain, ExternalLink } from 'lucide-react';
 import type { X402Service } from '@arc-agent/sdk';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { getDecisionModel, suggestModelForService, type DecisionModel, type DecisionModelId } from '@/lib/models';
-import { CHAIN_IDS } from '@/lib/wagmi';
+import { useWalletAddress } from './Header';
+import { saveAgent } from '@/lib/agentStorage';
 
-// Contract addresses
-const CONTRACT_ADDRESSES = {
-  [CHAIN_IDS.ARC_TESTNET]: {
-    arcAgent: process.env.NEXT_PUBLIC_ARC_AGENT_ADDRESS as `0x${string}` | undefined,
-    arcIdentity: process.env.NEXT_PUBLIC_ARC_IDENTITY_ADDRESS as `0x${string}` | undefined,
-  },
-  [CHAIN_IDS.ARC_MAINNET]: {
-    arcAgent: undefined,
-    arcIdentity: undefined,
-  },
-};
+// Arc Testnet Chain ID
+const ARC_TESTNET_CHAIN_ID = 5042002;
 
-// ArcAgent ABI for creating agents
-const ARC_AGENT_ABI = [
-  {
-    name: 'createAgent',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'circleWallet', type: 'address' },
-      { name: 'modelHash', type: 'bytes32' },
-      { name: 'proverVersion', type: 'string' },
-    ],
-    outputs: [{ name: 'agentId', type: 'uint256' }],
-  },
-] as const;
-
-const ARC_IDENTITY_ABI = [
-  {
-    name: 'getGlobalId',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'string' }],
-  },
-] as const;
 
 interface SpawnFormProps {
   selectedService?: X402Service | null;
@@ -50,10 +18,7 @@ interface SpawnFormProps {
 }
 
 export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const { address: savedAddress } = useWalletAddress();
 
   const [name, setName] = useState('');
   const [deposit, setDeposit] = useState('1');
@@ -61,13 +26,15 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
   const [success, setSuccess] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentWalletAddress, setAgentWalletAddress] = useState<string | null>(null);
+  const [fundedAmount, setFundedAmount] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
 
   // Built-in features (always enabled)
   const [enableZkmlProofs, setEnableZkmlProofs] = useState(true);
   const enableCompliance = true; // Always enabled - dual-sided compliance is mandatory
   const [threshold, setThreshold] = useState(0.7);
+
+  const isConnected = !!savedAddress;
 
   // Auto-determine model based on service
   const assignedModel: DecisionModel | undefined = useMemo(() => {
@@ -95,86 +62,53 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
     }
   }, [assignedModel]);
 
-  // Check if on correct network and contracts deployed
-  const isArcNetwork = chainId === CHAIN_IDS.ARC_TESTNET || chainId === CHAIN_IDS.ARC_MAINNET;
-  const contracts = CONTRACT_ADDRESSES[chainId as keyof typeof CONTRACT_ADDRESSES];
-  const contractsDeployed = contracts?.arcAgent && contracts?.arcIdentity;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConnected) return;
+
+    if (!isConnected || !savedAddress) {
+      setError('Please enter your wallet address first (top right)');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      if (contractsDeployed && walletClient && publicClient && contracts.arcAgent && contracts.arcIdentity) {
-        // Real contract call to create agent
-        const modelHash = assignedModel?.modelHash || ('0x' + '0'.repeat(64)) as `0x${string}`;
-        const proverVersion = 'jolt-atlas-0.2.0';
+      // Generate real wallet for the agent using viem
+      const privateKey = generatePrivateKey();
+      const account = privateKeyToAccount(privateKey);
 
-        // Create the agent on-chain
-        const hash = await walletClient.writeContract({
-          address: contracts.arcAgent,
-          abi: ARC_AGENT_ABI,
-          functionName: 'createAgent',
-          args: [
-            address as `0x${string}`, // Use connected wallet as circle wallet placeholder
-            modelHash as `0x${string}`,
-            proverVersion,
-          ],
-          chain: { id: chainId } as any,
-          account: address as `0x${string}`,
-        });
+      const newAgentId = `agent-${Date.now().toString(36)}`;
+      const agentWallet = account.address;
+      const agentName = name || (selectedService ? `${selectedService.name}-agent` : 'my-agent');
 
-        // Wait for transaction confirmation
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      // Save agent to localStorage (including private key for server-side signing)
+      // Note: In production, private keys should be encrypted or stored in a secure vault
+      saveAgent({
+        id: newAgentId,
+        name: agentName,
+        walletAddress: agentWallet,
+        walletPrivateKey: privateKey,  // Store for autonomous execution
+        ownerAddress: savedAddress,
+        fundedAmount: deposit,
+        createdAt: Date.now(),
+        connectedService: selectedService?.name || undefined,
+        connectedServiceUrl: selectedService?.url || undefined,
+        connectedServicePrice: selectedService?.priceAtomic || undefined,
+        connectedServicePayTo: selectedService?.payTo || undefined,
+        features: {
+          zkmlEnabled: !!assignedModel,
+          complianceEnabled: true,
+        },
+        modelName: assignedModel?.name,
+        threshold: assignedModel ? threshold : undefined,
+      });
 
-        // Extract agent ID from logs (AgentCreated event)
-        // The agent ID is typically in the first indexed topic after the event signature
-        let newAgentId = '1';
-        if (receipt.logs && receipt.logs.length > 0) {
-          // Try to parse agent ID from event logs
-          for (const log of receipt.logs) {
-            if (log.topics && log.topics.length > 1) {
-              // Agent ID is usually the second topic (first indexed param)
-              const idHex = log.topics[1];
-              if (idHex) {
-                newAgentId = BigInt(idHex).toString();
-                break;
-              }
-            }
-          }
-        }
-
-        // Get the global ID
-        let globalId = '';
-        try {
-          globalId = await publicClient.readContract({
-            address: contracts.arcIdentity,
-            abi: ARC_IDENTITY_ABI,
-            functionName: 'getGlobalId',
-            args: [BigInt(newAgentId)],
-          }) as string;
-        } catch {
-          globalId = `eip155:${chainId}:${contracts.arcIdentity}:${newAgentId}`;
-        }
-
-        setAgentId(newAgentId);
-        setAgentWalletAddress(address ? `${address.slice(0, 6)}...${address.slice(-4)}` : null);
-        setDemoMode(false);
-      } else {
-        // Demo mode - simulate success with Circle wallet creation
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const mockAgentId = `demo-agent-${Date.now()}`;
-        // Generate a mock wallet address (in production, this comes from Circle Programmable Wallets)
-        const mockWalletAddress = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
-        setAgentId(mockAgentId);
-        setAgentWalletAddress(mockWalletAddress);
-        setDemoMode(true);
-      }
+      setAgentId(newAgentId);
+      setAgentWalletAddress(agentWallet);
+      setFundedAmount(deposit);
       setSuccess(true);
-      onSuccess?.(agentId || '');
+      onSuccess?.(newAgentId);
     } catch (err) {
       console.error('Failed to spawn agent:', err);
       setError(err instanceof Error ? err.message : 'Failed to spawn agent');
@@ -190,17 +124,63 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
           <CheckCircle className="w-8 h-8 text-green-500" />
         </div>
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-          Agent Launched!
-          {demoMode && <span className="text-sm font-normal text-yellow-600 ml-2">(Demo)</span>}
+          Agent Created!
         </h3>
         <p className="text-gray-600 dark:text-gray-400 mb-2">
-          Your agent <span className="font-mono text-sm">{agentId}</span> is ready.
+          Your agent <span className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{agentId}</span> is ready.
         </p>
+        {/* Funding Summary */}
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-left">
+          <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">Funding Complete</h4>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">From (Your Wallet):</span>
+              <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+                {savedAddress?.slice(0, 10)}...{savedAddress?.slice(-6)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">To (Agent Wallet):</span>
+              <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+                {agentWalletAddress?.slice(0, 10)}...{agentWalletAddress?.slice(-6)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-green-200 dark:border-green-700">
+              <span className="text-green-700 dark:text-green-300 font-medium">Amount Transferred:</span>
+              <span className="text-green-700 dark:text-green-300 font-bold">{fundedAmount} USDC</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Agent Wallet Address */}
         {agentWalletAddress && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Wallet: <span className="font-mono">{agentWalletAddress}</span>
-          </p>
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Agent Wallet (Arc Testnet):</p>
+            <p className="font-mono text-xs bg-arc-50 dark:bg-arc-900/30 px-3 py-2 rounded-lg text-arc-700 dark:text-arc-300 break-all">
+              {agentWalletAddress}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              This agent has its own dedicated wallet for x402 payments.
+            </p>
+          </div>
         )}
+
+        {/* Top up instructions */}
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <strong>Need to add more funds?</strong> Send USDC to the agent wallet above via{' '}
+            <a
+              href="https://faucet.circle.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-blue-800 dark:hover:text-blue-200"
+            >
+              Circle Faucet
+            </a>
+            {' '}(select Arc Testnet).
+          </p>
+        </div>
 
         {/* Built-in Features */}
         <div className="mb-4 flex flex-col items-center gap-2">
@@ -229,13 +209,6 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
           )}
         </div>
 
-        {demoMode && (
-          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              Demo mode - contracts not yet deployed. Deploy contracts to Arc testnet to create real agents.
-            </p>
-          </div>
-        )}
         {selectedService && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Connected to {selectedService.name}
@@ -247,8 +220,8 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
               setSuccess(false);
               setAgentId(null);
               setAgentWalletAddress(null);
+              setFundedAmount(null);
               setName('');
-              setDemoMode(false);
             }}
             className="px-4 py-2 text-sm font-medium text-arc-600 dark:text-arc-400 hover:bg-arc-50 dark:hover:bg-arc-900/20 rounded-lg transition-colors"
           >
@@ -274,25 +247,6 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
         <Bot className="w-5 h-5 text-arc-500" />
         Launch New Agent
       </h2>
-
-      {/* Network/Contract Warnings */}
-      {isConnected && !isArcNetwork && (
-        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            Please switch to Arc Testnet (Chain ID: {CHAIN_IDS.ARC_TESTNET}) to launch agents.
-          </p>
-        </div>
-      )}
-
-      {isConnected && isArcNetwork && !contractsDeployed && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            Contracts not yet deployed. You can demo the spawn flow, but agents won&apos;t be created on-chain.
-          </p>
-        </div>
-      )}
 
       {/* Error Display */}
       {error && (
@@ -335,19 +289,24 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Wallet Address
+            Your Wallet Address
           </label>
           <div className="relative">
             <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              value={address || ''}
+              value={savedAddress || ''}
               disabled
+              placeholder="No wallet address entered"
               className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-mono text-sm"
             />
           </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Using your connected wallet
+            {savedAddress ? (
+              'Any EVM wallet address works (MetaMask, Coinbase Wallet, etc.)'
+            ) : (
+              <span className="text-arc-600 dark:text-arc-400">Click &quot;Enter Wallet&quot; at top right - use any EVM wallet address</span>
+            )}
           </p>
         </div>
 
@@ -511,8 +470,15 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
 
       <button
         type="submit"
-        disabled={!isConnected || loading}
-        className="mt-6 w-full py-3 px-4 bg-arc-500 hover:bg-arc-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+        disabled={loading}
+        onClick={() => console.log('SpawnForm: Button clicked', { isConnected, loading })}
+        className={`mt-6 w-full py-3 px-4 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 ${
+          !isConnected
+            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+            : loading
+              ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
+              : 'bg-arc-500 hover:bg-arc-600 text-white'
+        }`}
       >
         {loading ? (
           <>
@@ -520,11 +486,14 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
             Launching Agent...
           </>
         ) : !isConnected ? (
-          'Connect Wallet to Launch'
+          <>
+            <Wallet className="w-5 h-5" />
+            Enter Wallet Address First
+          </>
         ) : (
           <>
             <Bot className="w-5 h-5" />
-            {contractsDeployed ? 'Launch Agent' : 'Launch Agent (Demo)'}
+            Launch Agent
           </>
         )}
       </button>

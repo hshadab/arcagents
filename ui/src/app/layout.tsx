@@ -25,7 +25,7 @@ export default async function RootLayout({
   const initialState = cookieToInitialState(config, cookie);
 
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={inter.className}>
         <Providers initialState={initialState}>
           <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">

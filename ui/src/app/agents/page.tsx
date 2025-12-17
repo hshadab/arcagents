@@ -1,107 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useChainId, usePublicClient } from 'wagmi';
-import { Bot, Wallet, ArrowRight, Plus, Loader2, Shield, AlertCircle, ExternalLink, FileCheck, CheckCircle, Clock } from 'lucide-react';
+import { Bot, Wallet, ArrowRight, Plus, Loader2, Shield, AlertCircle, ExternalLink, FileCheck, CheckCircle, Clock, Copy, Check, Trash2, Info } from 'lucide-react';
 import Link from 'next/link';
-import { ProofStatus, ProofBadge, ValidationResponse, type ProofItem } from '@/components/ProofStatus';
-import { arcTestnet, CHAIN_IDS } from '@/lib/wagmi';
+import { ProofStatus, ValidationResponse, type ProofItem } from '@/components/ProofStatus';
+import { useWalletAddress } from '@/components/Header';
+import { getSavedAgents, removeAgent as removeAgentFromStorage, type SavedAgent } from '@/lib/agentStorage';
+import { AgentExecutionPanel } from '@/components/AgentExecutionPanel';
+import { ServiceOutputDisplay } from '@/components/ServiceOutputDisplay';
 
-// Contract addresses
-const CONTRACT_ADDRESSES = {
-  [CHAIN_IDS.ARC_TESTNET]: {
-    arcAgent: process.env.NEXT_PUBLIC_ARC_AGENT_ADDRESS as `0x${string}` | undefined,
-    arcIdentity: process.env.NEXT_PUBLIC_ARC_IDENTITY_ADDRESS as `0x${string}` | undefined,
-    arcTreasury: process.env.NEXT_PUBLIC_ARC_TREASURY_ADDRESS as `0x${string}` | undefined,
-    arcProofAttestation: process.env.NEXT_PUBLIC_ARC_PROOF_ATTESTATION_ADDRESS as `0x${string}` | undefined,
-  },
-  [CHAIN_IDS.ARC_MAINNET]: {
-    arcAgent: undefined,
-    arcIdentity: undefined,
-    arcTreasury: undefined,
-    arcProofAttestation: undefined,
-  },
-};
-
-// Contract ABIs for reading agent data
-const ARC_IDENTITY_ABI = [
-  {
-    name: 'getAgentsByOwner',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'owner', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256[]' }],
-  },
-  {
-    name: 'getAgent',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'circleWalletId', type: 'string' },
-      { name: 'circleWalletAddr', type: 'address' },
-      { name: 'modelHash', type: 'bytes32' },
-      { name: 'proverVersion', type: 'string' },
-      { name: 'kycStatus', type: 'uint8' },
-      { name: 'createdAt', type: 'uint256' },
-    ],
-  },
-  {
-    name: 'getGlobalId',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'string' }],
-  },
-] as const;
-
-const ARC_TREASURY_ABI = [
-  {
-    name: 'getAgentBalance',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const;
-
-const ARC_PROOF_ATTESTATION_ABI = [
-  {
-    name: 'getAgentValidProofCount',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'getAgentValidations',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bytes32[]' }],
-  },
-] as const;
-
-// Agent type from contract
+// Agent type for display
 interface Agent {
   id: string;
-  globalId: string;
   name: string;
   walletAddress?: string;
   balance: string;
-  kycStatus: number;
   connectedService: string | null;
-  transactions: number;
+  connectedServiceUrl?: string;
+  connectedServicePrice?: string;
+  connectedServicePayTo?: string;
   features?: {
     zkmlEnabled: boolean;
     complianceEnabled: boolean;
   };
-  compliance?: {
-    status: 'PENDING' | 'APPROVED' | 'DENIED' | 'REVIEW_REQUIRED';
-    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'SEVERE';
-    lastChecked: number;
-  };
+  modelName?: string;
+  createdAt?: number;
+  isExample?: boolean;
+  lastExecutionOutput?: unknown;
   proofs: {
     valid: number;
     total: number;
@@ -109,275 +34,115 @@ interface Agent {
   };
 }
 
-const kycStatusLabels: Record<number, { label: string; color: string }> = {
-  0: { label: 'None', color: 'text-gray-500' },
-  1: { label: 'Pending', color: 'text-yellow-500' },
-  2: { label: 'Approved', color: 'text-green-500' },
-  3: { label: 'Rejected', color: 'text-red-500' },
+// Single example agent to show what a working agent looks like
+const exampleAgent: Agent = {
+  id: 'example-weather-bot',
+  name: 'weather-bot',
+  walletAddress: '0x8a3F7b2E9c1D4f5A6B8C0E2D4F6A8B0C2E4D6F8A',
+  balance: '4.50',
+  connectedService: 'Weather Oracle',
+  features: {
+    zkmlEnabled: true,
+    complianceEnabled: true,
+  },
+  modelName: 'BinaryClassifier',
+  isExample: true,
+  proofs: {
+    valid: 12,
+    total: 15,
+    items: [
+      {
+        requestHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        tag: 'authorization' as const,
+        response: ValidationResponse.Valid,
+        isValidated: true,
+        timestamp: Date.now() / 1000 - 3600,
+        metadata: {
+          modelHash: '0xabc123def456789abc123def456789abc123def456789abc123def456789abc1',
+          inputHash: '0xdef456789abc123def456789abc123def456789abc123def456789abc123def4',
+          outputHash: '0x789abc123def456789abc123def456789abc123def456789abc123def456789a',
+          proofSize: 2048,
+          generationTime: 5234,
+          proverVersion: 'jolt-atlas-0.2.0',
+        },
+      },
+    ],
+  },
 };
 
-// Demo agents for showcase (when contracts not deployed)
-const demoAgents: Agent[] = [
-  {
-    id: 'demo-1',
-    globalId: 'eip155:5042002:0x44197C5f...5D:1',
-    name: 'weather-bot',
-    walletAddress: '0x8a3F...7b2E',
-    balance: '4.50',
-    kycStatus: 2,
-    connectedService: 'Weather Oracle',
-    transactions: 1250,
-    features: {
-      zkmlEnabled: true,
-      complianceEnabled: true,
-    },
-    compliance: {
-      status: 'APPROVED',
-      riskLevel: 'LOW',
-      lastChecked: Date.now() - 3600000,
-    },
+// Convert saved agent to display format
+function savedAgentToDisplay(saved: SavedAgent): Agent {
+  return {
+    id: saved.id,
+    name: saved.name,
+    walletAddress: saved.walletAddress,
+    balance: saved.fundedAmount,
+    connectedService: saved.connectedService || null,
+    connectedServiceUrl: saved.connectedServiceUrl,
+    connectedServicePrice: saved.connectedServicePrice,
+    connectedServicePayTo: saved.connectedServicePayTo,
+    features: saved.features,
+    modelName: saved.modelName,
+    createdAt: saved.createdAt,
+    isExample: false,
+    lastExecutionOutput: saved.lastExecution?.outputPreview ?
+      JSON.parse(saved.lastExecution.outputPreview) : undefined,
     proofs: {
-      valid: 12,
-      total: 15,
-      items: [
-        {
-          requestHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          tag: 'authorization' as const,
-          response: ValidationResponse.Valid,
-          isValidated: true,
-          timestamp: Date.now() / 1000 - 3600,
-          metadata: {
-            modelHash: '0xabc123def456789abc123def456789abc123def456789abc123def456789abc1',
-            inputHash: '0xdef456789abc123def456789abc123def456789abc123def456789abc123def4',
-            outputHash: '0x789abc123def456789abc123def456789abc123def456789abc123def456789a',
-            proofSize: 2048,
-            generationTime: 5234,
-            proverVersion: 'jolt-atlas-0.2.0',
-          },
-        },
-        {
-          requestHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-          tag: 'compliance' as const,
-          response: ValidationResponse.Valid,
-          isValidated: true,
-          timestamp: Date.now() / 1000 - 7200,
-          metadata: {
-            modelHash: '0xfed456789abc123def456789abc123def456789abc123def456789abc123fed4',
-            inputHash: '0x123abc456def789abc123def456789abc123def456789abc123def456789123a',
-            outputHash: '0x456def789abc123def456789abc123def456789abc123def456789abc123456d',
-            proofSize: 1536,
-            generationTime: 3890,
-            proverVersion: 'jolt-atlas-0.2.0',
-          },
-        },
-      ],
+      valid: saved.lastExecution?.proofHash ? 1 : 0,
+      total: saved.lastExecution?.proofHash ? 1 : 0,
+      items: saved.lastExecution?.proofHash ? [{
+        requestHash: saved.lastExecution.proofHash,
+        tag: 'authorization' as const,
+        response: saved.lastExecution.success ? ValidationResponse.Valid : ValidationResponse.Invalid,
+        isValidated: true,
+        timestamp: Math.floor(saved.lastExecution.timestamp / 1000),
+      }] : [],
     },
-  },
-  {
-    id: 'demo-2',
-    globalId: 'eip155:5042002:0x44197C5f...5D:2',
-    name: 'llm-inference',
-    walletAddress: '0x3cD1...9aF4',
-    balance: '12.75',
-    kycStatus: 2,
-    connectedService: 'LLM Inference API',
-    transactions: 3420,
-    features: {
-      zkmlEnabled: true,
-      complianceEnabled: false,
-    },
-    proofs: {
-      valid: 28,
-      total: 30,
-      items: [
-        {
-          requestHash: '0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
-          tag: 'authorization' as const,
-          response: ValidationResponse.Valid,
-          isValidated: true,
-          timestamp: Date.now() / 1000 - 1800,
-          metadata: {
-            modelHash: '0x111222333444555666777888999aaabbbcccdddeeefffabc123def456789abc1',
-            inputHash: '0x222333444555666777888999aaabbbcccdddeeefffabc123def456789abc1222',
-            outputHash: '0x333444555666777888999aaabbbcccdddeeefffabc123def456789abc1333444',
-            proofSize: 2560,
-            generationTime: 6120,
-            proverVersion: 'jolt-atlas-0.2.0',
-          },
-        },
-      ],
-    },
-  },
-  {
-    id: 'demo-3',
-    globalId: 'eip155:5042002:0x44197C5f...5D:3',
-    name: 'data-oracle',
-    walletAddress: '0x7eB2...4cD8',
-    balance: '0.25',
-    kycStatus: 1,
-    connectedService: null,
-    transactions: 45,
-    features: {
-      zkmlEnabled: false,
-      complianceEnabled: true,
-    },
-    compliance: {
-      status: 'APPROVED',
-      riskLevel: 'LOW',
-      lastChecked: Date.now() - 86400000,
-    },
-    proofs: {
-      valid: 0,
-      total: 0,
-      items: [],
-    },
-  },
-];
+  };
+}
 
 export default function AgentsPage() {
-  const { isConnected, address } = useAccount();
-  const chainId = useChainId();
-  const publicClient = usePublicClient();
+  const { address: savedAddress } = useWalletAddress();
+  const isConnected = !!savedAddress;
 
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(false);
+  const [savedAgents, setSavedAgents] = useState<SavedAgent[]>([]);
+  const [showExample, setShowExample] = useState(true);
+  const [fundingAgent, setFundingAgent] = useState<string | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [executionOutputs, setExecutionOutputs] = useState<Record<string, unknown>>({});
 
-  // Check if contracts are deployed
-  const contracts = CONTRACT_ADDRESSES[chainId as keyof typeof CONTRACT_ADDRESSES];
-  const contractsDeployed = contracts?.arcAgent && contracts?.arcIdentity && contracts?.arcTreasury;
+  // Load saved agents from localStorage
+  useEffect(() => {
+    const saved = getSavedAgents();
+    setSavedAgents(saved);
+    const displayAgents = saved.map(savedAgentToDisplay);
+    setAgents(displayAgents);
+  }, []);
 
-  // Fetch agents from contract
-  const fetchAgents = async () => {
-    if (!isConnected || !address || !publicClient) return;
-
-    // If contracts not deployed, show demo mode option
-    if (!contractsDeployed) {
-      setAgents([]);
-      return;
+  // Handle execution completion
+  const handleExecutionComplete = (agentId: string, result: { success: boolean; data?: unknown }) => {
+    if (result.success && result.data) {
+      setExecutionOutputs(prev => ({ ...prev, [agentId]: result.data }));
     }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Get agent IDs owned by this address
-      const agentIds = await publicClient.readContract({
-        address: contracts.arcIdentity!,
-        abi: ARC_IDENTITY_ABI,
-        functionName: 'getAgentsByOwner',
-        args: [address],
-      }) as bigint[];
-
-      if (agentIds.length === 0) {
-        setAgents([]);
-        return;
-      }
-
-      // Fetch details for each agent
-      const agentPromises = agentIds.map(async (agentId) => {
-        try {
-          // Get agent identity data
-          const agentData = await publicClient.readContract({
-            address: contracts.arcIdentity!,
-            abi: ARC_IDENTITY_ABI,
-            functionName: 'getAgent',
-            args: [agentId],
-          }) as [string, string, string, string, string, number, bigint];
-
-          // Get global ID
-          const globalId = await publicClient.readContract({
-            address: contracts.arcIdentity!,
-            abi: ARC_IDENTITY_ABI,
-            functionName: 'getGlobalId',
-            args: [agentId],
-          }) as string;
-
-          // Get balance from treasury
-          let balance = '0';
-          try {
-            const balanceWei = await publicClient.readContract({
-              address: contracts.arcTreasury!,
-              abi: ARC_TREASURY_ABI,
-              functionName: 'getAgentBalance',
-              args: [agentId],
-            }) as bigint;
-            balance = (Number(balanceWei) / 1_000_000).toFixed(2); // USDC has 6 decimals
-          } catch {
-            // Treasury might not have balance for this agent
-          }
-
-          // Get proof count
-          let validProofCount = 0;
-          let totalProofCount = 0;
-          try {
-            if (contracts.arcProofAttestation) {
-              validProofCount = Number(await publicClient.readContract({
-                address: contracts.arcProofAttestation,
-                abi: ARC_PROOF_ATTESTATION_ABI,
-                functionName: 'getAgentValidProofCount',
-                args: [agentId],
-              }) as bigint);
-
-              const proofHashes = await publicClient.readContract({
-                address: contracts.arcProofAttestation,
-                abi: ARC_PROOF_ATTESTATION_ABI,
-                functionName: 'getAgentValidations',
-                args: [agentId],
-              }) as string[];
-              totalProofCount = proofHashes.length;
-            }
-          } catch {
-            // Proof attestation might not have data
-          }
-
-          const [owner, circleWalletId, circleWalletAddr, modelHash, proverVersion, kycStatus, createdAt] = agentData;
-
-          return {
-            id: agentId.toString(),
-            globalId: globalId || `eip155:5042002:${contracts.arcIdentity}:${agentId}`,
-            name: `Agent #${agentId}`,
-            walletAddress: circleWalletAddr !== '0x0000000000000000000000000000000000000000'
-              ? `${circleWalletAddr.slice(0, 6)}...${circleWalletAddr.slice(-4)}`
-              : undefined,
-            balance,
-            kycStatus: kycStatus,
-            connectedService: null,
-            transactions: 0,
-            features: {
-              zkmlEnabled: modelHash !== '0x0000000000000000000000000000000000000000000000000000000000000000',
-              complianceEnabled: kycStatus > 0,
-            },
-            proofs: {
-              valid: validProofCount,
-              total: totalProofCount,
-              items: [],
-            },
-          } as Agent;
-        } catch (err) {
-          console.error(`Failed to fetch agent ${agentId}:`, err);
-          return null;
-        }
-      });
-
-      const fetchedAgents = (await Promise.all(agentPromises)).filter((a): a is Agent => a !== null);
-      setAgents(fetchedAgents);
-    } catch (err) {
-      console.error('Failed to fetch agents:', err);
-      setError('Failed to fetch agents from contract');
-    } finally {
-      setLoading(false);
-    }
+    // Reload agents to get updated lastExecution
+    const saved = getSavedAgents();
+    setSavedAgents(saved);
+    setAgents(saved.map(savedAgentToDisplay));
   };
 
-  useEffect(() => {
-    if (isConnected && !demoMode) {
-      fetchAgents();
-    } else if (demoMode) {
-      setAgents(demoAgents);
-    }
-  }, [isConnected, address, chainId, demoMode]);
+  // Copy wallet address to clipboard
+  const copyWalletAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    setCopiedAddress(address);
+    setTimeout(() => setCopiedAddress(null), 2000);
+  };
+
+  // Remove an agent
+  const handleRemoveAgent = (agentId: string) => {
+    removeAgentFromStorage(agentId);
+    setAgents(agents.filter(a => a.id !== agentId));
+  };
 
   // Not connected state
   if (!isConnected) {
@@ -385,128 +150,72 @@ export default function AgentsPage() {
       <div className="max-w-2xl mx-auto text-center py-12">
         <Bot className="w-16 h-16 mx-auto mb-4 text-slate-400" />
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-          Connect Your Wallet
+          Enter Your Wallet Address
         </h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Connect your wallet to view and manage your Arc Agents.
+        <p className="text-slate-600 dark:text-slate-400 mb-4">
+          Enter any EVM wallet address to get started with Arc Agents.
         </p>
-        <p className="text-sm text-slate-500 dark:text-slate-500">
-          Connect with Coinbase Wallet to get started
+        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 mb-6 text-left max-w-md mx-auto">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Any Ethereum-compatible wallet works:
+          </p>
+          <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+            <li>• MetaMask, Coinbase Wallet, Rainbow</li>
+            <li>• Hardware wallets (Ledger, Trezor)</li>
+            <li>• Any wallet with a 0x... address</li>
+          </ul>
+        </div>
+        <p className="text-sm text-arc-600 dark:text-arc-400 font-medium">
+          Click &quot;Enter Wallet&quot; in the top right to get started
         </p>
       </div>
     );
   }
 
-  // Wrong network state
-  if (chainId !== CHAIN_IDS.ARC_TESTNET && chainId !== CHAIN_IDS.ARC_MAINNET) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-12">
-        <AlertCircle className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-          Switch to Arc Network
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Please switch to Arc Testnet or Arc Mainnet to use Arc Agents.
-        </p>
-        <div className="text-sm text-slate-500 dark:text-slate-400 space-y-1">
-          <p>Arc Testnet Chain ID: {CHAIN_IDS.ARC_TESTNET}</p>
-          <p>RPC: {arcTestnet.rpcUrls.default.http[0]}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Contracts not deployed state
-  if (!contractsDeployed && !demoMode) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-12">
-        <AlertCircle className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-          Contracts Not Deployed
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Arc Agents contracts need to be deployed to Arc Testnet before you can create agents.
-        </p>
-        <div className="space-y-4">
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            <p>Deploy contracts using:</p>
-            <code className="block mt-2 p-2 bg-slate-100 dark:bg-slate-800 rounded text-xs">
-              cd contracts && npx hardhat run scripts/deploy.js --network arc-testnet
-            </code>
-          </div>
-          <div className="flex justify-center gap-4">
-            <a
-              href="https://faucet.circle.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-arc-600 dark:text-arc-400 hover:underline"
-            >
-              Get testnet USDC
-              <ExternalLink className="w-4 h-4" />
-            </a>
-            <button
-              onClick={() => setDemoMode(true)}
-              className="px-4 py-2 text-sm bg-arc-500 hover:bg-arc-600 text-white rounded-lg transition-colors"
-            >
-              View Demo
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Combine user agents with example agent if shown
+  const displayAgents = showExample ? [...agents, exampleAgent] : agents;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
             My Agents
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
             Manage your Arc Agents and their treasuries
-            {demoMode && <span className="ml-2 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 text-sm rounded-full">Demo Mode</span>}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {demoMode && (
-            <button
-              onClick={() => {
-                setDemoMode(false);
-                setAgents([]);
-              }}
-              className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400 hover:underline"
-            >
-              Exit Demo
-            </button>
-          )}
-          <Link
-            href="/spawn"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-arc-500 to-arc-600 hover:from-arc-600 hover:to-arc-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            Launch Agent
-          </Link>
+        <Link
+          href="/spawn"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-arc-500 to-arc-600 hover:from-arc-600 hover:to-arc-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+        >
+          <Plus className="w-5 h-5" />
+          Launch Agent
+        </Link>
+      </div>
+
+      {/* How Agents Work - Explanatory Section */}
+      <div className="mb-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">How Arc Agents Work</h3>
+            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <li><strong>1. Create:</strong> Launch an agent with initial USDC funding from your wallet to the agent&apos;s dedicated wallet.</li>
+              <li><strong>2. Configure:</strong> Agents auto-assign decision models for action services. Compliance is built-in.</li>
+              <li><strong>3. Execute:</strong> Your agent calls x402 services, pays in USDC, and (for ML agents) generates zkML proofs.</li>
+              <li><strong>4. Verify:</strong> All proofs are attested on-chain for full transparency and accountability.</li>
+            </ul>
+            <p className="text-xs text-blue-600 dark:text-blue-300 mt-2">
+              In production, agents run autonomously via the SDK/CLI. This UI shows agent status and proof history.
+            </p>
+          </div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-arc-500" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-12 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
-          <p className="text-red-600 dark:text-red-400">{error}</p>
-          <button
-            onClick={fetchAgents}
-            className="mt-4 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:underline"
-          >
-            Try Again
-          </button>
-        </div>
-      ) : agents.length === 0 ? (
+      {agents.length === 0 && !showExample ? (
         <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <Bot className="w-16 h-16 mx-auto mb-4 text-slate-400" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
@@ -525,6 +234,12 @@ export default function AgentsPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Your Agents Section */}
+          {agents.length > 0 && (
+            <div className="mb-2">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Your Agents ({agents.length})</h2>
+            </div>
+          )}
           {agents.map((agent) => (
             <div
               key={agent.id}
@@ -554,65 +269,55 @@ export default function AgentsPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">
-                      {agent.globalId}
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {agent.connectedService ? `Connected to ${agent.connectedService}` : 'No service connected'}
                     </p>
                     {agent.walletAddress && (
-                      <p className="text-xs text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1 mt-1">
                         <Wallet className="w-3 h-3" />
-                        {agent.walletAddress}
+                        {agent.walletAddress.slice(0, 10)}...{agent.walletAddress.slice(-8)}
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    ${agent.balance}
-                  </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    USDC Balance
-                  </p>
-                  {agent.compliance && (
-                    <div className="mt-1 flex items-center justify-end gap-1">
-                      {agent.compliance.status === 'APPROVED' ? (
-                        <CheckCircle className="w-3 h-3 text-green-500" />
-                      ) : agent.compliance.status === 'PENDING' ? (
-                        <Clock className="w-3 h-3 text-yellow-500" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
-                      )}
-                      <span className="text-xs text-slate-500">
-                        {agent.compliance.riskLevel} risk
-                      </span>
-                    </div>
+                <div className="text-right flex flex-col items-end gap-2">
+                  <div>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      ${agent.balance}
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      USDC Balance
+                    </p>
+                  </div>
+                  {/* Delete button for user agents */}
+                  {!agent.isExample && (
+                    <button
+                      onClick={() => handleRemoveAgent(agent.id)}
+                      className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove
+                    </button>
                   )}
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    KYC Status
+                    Model
                   </p>
-                  <p className={`font-medium ${kycStatusLabels[agent.kycStatus].color}`}>
-                    {kycStatusLabels[agent.kycStatus].label}
+                  <p className="font-medium text-slate-900 dark:text-white">
+                    {agent.modelName || 'None'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Connected Service
+                    Created
                   </p>
                   <p className="font-medium text-slate-900 dark:text-white">
-                    {agent.connectedService || 'None'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Transactions
-                  </p>
-                  <p className="font-medium text-slate-900 dark:text-white">
-                    {agent.transactions.toLocaleString()}
+                    {agent.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
                 <div>
@@ -631,6 +336,44 @@ export default function AgentsPage() {
                 </div>
               </div>
 
+              {/* Agent Execution Panel */}
+              {(() => {
+                const savedAgent = savedAgents.find(s => s.id === agent.id);
+                const agentForExecution: SavedAgent = savedAgent || {
+                  id: agent.id,
+                  name: agent.name,
+                  walletAddress: agent.walletAddress || '',
+                  ownerAddress: savedAddress || '',
+                  fundedAmount: agent.balance,
+                  createdAt: agent.createdAt || Date.now(),
+                  connectedService: agent.connectedService || undefined,
+                  connectedServiceUrl: agent.connectedServiceUrl,
+                  connectedServicePrice: agent.connectedServicePrice,
+                  connectedServicePayTo: agent.connectedServicePayTo,
+                  features: agent.features || { zkmlEnabled: false, complianceEnabled: true },
+                  modelName: agent.modelName,
+                };
+                return (
+                  <div className="mt-6">
+                    <AgentExecutionPanel
+                      agent={agentForExecution}
+                      onExecutionComplete={(result) => handleExecutionComplete(agent.id, result)}
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* Service Output Display */}
+              {Boolean(executionOutputs[agent.id] || agent.lastExecutionOutput) && (
+                <div className="mt-4">
+                  <ServiceOutputDisplay
+                    data={executionOutputs[agent.id] || agent.lastExecutionOutput}
+                    serviceName={agent.connectedService || undefined}
+                    serviceUrl={agent.connectedServiceUrl}
+                  />
+                </div>
+              )}
+
               {/* zkML Proof Status */}
               <div className="mt-6">
                 <ProofStatus
@@ -640,18 +383,160 @@ export default function AgentsPage() {
                 />
               </div>
 
+              {/* Funding Modal - Use Circle Faucet */}
+              {fundingAgent === agent.id && (
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">Fund Agent via Circle Faucet</h4>
+                  <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                    Copy the agent wallet address below and send USDC from the Circle faucet:
+                  </p>
+                  {agent.walletAddress && (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-green-200 dark:border-green-700">
+                        <span className="flex-1 font-mono text-sm text-slate-700 dark:text-slate-300">
+                          {agent.walletAddress}
+                        </span>
+                        <button
+                          onClick={() => copyWalletAddress(agent.walletAddress || '')}
+                          className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 rounded transition-colors"
+                        >
+                          {copiedAddress === agent.walletAddress ? (
+                            <Check className="w-4 h-4" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <a
+                      href="https://faucet.circle.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      Open Circle Faucet
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => setFundingAgent(null)}
+                      className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-green-600 dark:text-green-400">
+                    Select &quot;Arc Testnet&quot; network on the faucet page
+                  </p>
+                </div>
+              )}
+
               <div className="mt-6 flex gap-3">
-                <button className="flex-1 px-4 py-2 text-sm font-medium text-arc-600 dark:text-arc-400 bg-arc-50 dark:bg-arc-900/20 hover:bg-arc-100 dark:hover:bg-arc-900/30 rounded-lg transition-colors">
+                <button
+                  onClick={() => setFundingAgent(fundingAgent === agent.id ? null : agent.id)}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-arc-600 dark:text-arc-400 bg-arc-50 dark:bg-arc-900/20 hover:bg-arc-100 dark:hover:bg-arc-900/30 rounded-lg transition-colors"
+                >
                   <Wallet className="w-4 h-4 inline-block mr-2" />
-                  Fund
-                </button>
-                <button className="flex-1 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                  <ArrowRight className="w-4 h-4 inline-block mr-2" />
-                  Make Request
+                  {fundingAgent === agent.id ? 'Close' : 'Add Funds'}
                 </button>
               </div>
             </div>
           ))}
+
+          {/* Example Agent Section */}
+          {showExample && (
+            <>
+              <div className="mt-8 mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Example Agent</h2>
+                <button
+                  onClick={() => setShowExample(false)}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  Hide Example
+                </button>
+              </div>
+              <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 p-6 shadow-sm relative">
+                {/* Example Badge */}
+                <div className="absolute -top-3 left-4 px-3 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full border border-amber-300 dark:border-amber-700">
+                  EXAMPLE - Illustrative Data
+                </div>
+
+                <div className="flex items-start justify-between mt-2">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                      <Bot className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-slate-900 dark:text-white">
+                          {exampleAgent.name}
+                        </h3>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-arc-100 dark:bg-arc-900/30 text-arc-700 dark:text-arc-300 text-xs rounded-full font-medium">
+                          <Shield className="w-3 h-3" />
+                          zkML
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full font-medium">
+                          <FileCheck className="w-3 h-3" />
+                          Compliant
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Connected to {exampleAgent.connectedService}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1 mt-1">
+                        <Wallet className="w-3 h-3" />
+                        {exampleAgent.walletAddress?.slice(0, 10)}...{exampleAgent.walletAddress?.slice(-8)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      ${exampleAgent.balance}
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      USDC Balance
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Model</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{exampleAgent.modelName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Service</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{exampleAgent.connectedService}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">zkML Proofs</p>
+                    <div className="flex items-center gap-1">
+                      <Shield className="w-4 h-4 text-arc-500" />
+                      <span className="font-medium text-green-600 dark:text-green-400">{exampleAgent.proofs.valid}</span>
+                      <span className="text-slate-400 dark:text-slate-500">/{exampleAgent.proofs.total}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Proof Status for example */}
+                <div className="mt-6">
+                  <ProofStatus
+                    agentId={exampleAgent.id}
+                    proofs={exampleAgent.proofs.items}
+                    validProofCount={exampleAgent.proofs.valid}
+                  />
+                </div>
+
+                <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    <strong>This is example data</strong> showing what a working agent looks like after it has made x402 requests and generated zkML proofs. Your agents will appear above once created.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

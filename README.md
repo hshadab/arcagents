@@ -98,8 +98,12 @@ npm run dev:ui
 
 The UI lets you:
 - Browse available x402 services from the Bazaar
-- Spawn agents with one click
-- Manage your agents and treasury balances
+- Spawn agents with auto-generated wallets
+- Execute agents manually or on schedule
+- View model inference results and zkML proofs
+- Track payments and activity history
+
+See [UI README](./ui/README.md) for detailed documentation.
 
 ### CLI
 
@@ -194,6 +198,33 @@ Arc supports two types of agents:
 
 **ML agents** run ONNX models locally and generate JOLT-Atlas zkML proofs *before* payment. The proof verifies the model computed correctly, providing on-chain accountability.
 
+#### ML Agent Execution Flow (Proof-First)
+
+```
+1. PROBE      → Free metadata request to x402 service
+                ↓
+2. INFERENCE  → Run ONNX model on probe data
+                ↓
+3. PROOF      → Generate zkML proof (JOLT-Atlas)
+                ↓
+4. VERIFY     → Local proof verification
+                ↓
+5. DECISION   → Model output >= threshold?
+                │
+                ├─ REJECT → Return result, NO payment made
+                │
+                └─ APPROVE → Continue to payment
+                             ↓
+6. PAY        → USDC transfer on Arc Testnet
+                ↓
+7. EXECUTE    → Fetch service data with payment receipt
+```
+
+**Key principle**: Proofs are generated BEFORE payment. This ensures:
+- Model execution is verifiable before spending funds
+- Rejected decisions (below threshold) don't incur costs
+- On-chain accountability for all approved actions
+
 ### Agent Lifecycle
 
 1. **Create** - Spawn agent with on-chain identity (ERC-8004)
@@ -251,6 +282,21 @@ Agent                          x402 Service
 
 ```
 arcagent/
+├── ui/                 # Next.js Web UI
+│   └── src/
+│       ├── app/
+│       │   ├── api/execute/       # Agent execution API
+│       │   ├── agents/            # Agent management
+│       │   └── spawn/             # Agent creation
+│       ├── components/
+│       │   ├── AgentExecutionPanel.tsx  # Run controls & results
+│       │   ├── ServiceOutputDisplay.tsx # Service response viewer
+│       │   └── SpawnForm.tsx            # Agent creation form
+│       └── lib/
+│           ├── arcPayment.ts      # Arc Testnet USDC transfers
+│           ├── x402Client.ts      # x402 protocol client
+│           └── agentStorage.ts    # Agent persistence
+│
 ├── contracts/          # Solidity smart contracts
 │   ├── core/
 │   │   ├── ArcAgent.sol           # Main facade contract

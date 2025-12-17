@@ -34,6 +34,7 @@ export const arcMainnet: Chain = {
 };
 
 // Create wagmi config directly (no connectkit dependency for SSR compatibility)
+// IMPORTANT: Only Arc networks are supported - no Base, no other chains
 export const config = createConfig({
   chains: [arcTestnet, arcMainnet],
   transports: {

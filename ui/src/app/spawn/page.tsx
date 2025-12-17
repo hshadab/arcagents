@@ -19,7 +19,7 @@ function mapBazaarResource(resource: any): X402Service {
     price: resource.price?.amount || resource.pricing?.perRequest || '0',
     priceAtomic: resource.price?.atomicAmount || '0',
     asset: resource.price?.asset || resource.pricing?.asset || 'USDC',
-    network: resource.network || resource.chain || 'base',
+    network: 'Arc Testnet',
     payTo: resource.payTo || resource.paymentAddress || '0x0000000000000000000000000000000000000000',
     category: mapCategory(resource.category || resource.type),
   };

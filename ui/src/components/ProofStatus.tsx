@@ -205,10 +205,10 @@ export function ProofStatus({ agentId, proofs, validProofCount, onRefresh }: Pro
         <div className="p-6 text-center">
           <Shield className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            No proofs submitted yet
+            No proofs yet
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Use the CLI to generate and submit zkML proofs
+            Proofs are generated automatically when the agent makes x402 requests
           </p>
         </div>
       ) : (
