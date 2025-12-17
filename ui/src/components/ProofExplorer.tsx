@@ -15,7 +15,7 @@ import {
   ChevronUp,
   Search,
 } from 'lucide-react';
-import { CHAIN_IDS } from '@/lib/wagmi';
+import { CHAIN_IDS, arcTestnet, arcMainnet } from '@/lib/wagmi';
 
 // ArcProofAttestation ABI (read functions only)
 const PROOF_ATTESTATION_ABI = [
@@ -125,8 +125,16 @@ function decodeTag(tagHex: string): string {
   return tagHex.slice(0, 10) + '...';
 }
 
-function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded: boolean; onToggle: () => void }) {
+function getExplorerUrl(chainId: number): string {
+  if (chainId === CHAIN_IDS.ARC_TESTNET) {
+    return arcTestnet.blockExplorers?.default.url || 'https://testnet.arcscan.app';
+  }
+  return arcMainnet.blockExplorers?.default.url || 'https://arcscan.app';
+}
+
+function ProofRow({ proof, expanded, onToggle, explorerUrl }: { proof: ProofRecord; expanded: boolean; onToggle: () => void; explorerUrl: string }) {
   const response = RESPONSE_LABELS[proof.response] || RESPONSE_LABELS[0];
+  const hasVerificationData = proof.metadata.modelHash && proof.metadata.modelHash !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
   return (
     <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
@@ -146,6 +154,11 @@ function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded:
               <span className={`text-xs px-2 py-0.5 rounded-full ${response.color} bg-opacity-10`}>
                 {response.label}
               </span>
+              {hasVerificationData && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-arc-100 dark:bg-arc-900/30 text-arc-700 dark:text-arc-400">
+                  zkML
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               <span>Agent #{proof.agentId}</span>
@@ -159,6 +172,16 @@ function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded:
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`${explorerUrl}/tx/${proof.requestHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-arc-600 dark:text-arc-400 hover:text-arc-700 dark:hover:text-arc-300 p-1"
+            title="View on Arc Explorer"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
           {expanded ? (
             <ChevronUp className="w-4 h-4 text-slate-400" />
           ) : (
@@ -169,6 +192,36 @@ function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded:
 
       {expanded && (
         <div className="px-4 pb-4 bg-slate-50 dark:bg-slate-800/30">
+          {/* Local Verification Section */}
+          {hasVerificationData && (
+            <div className="mb-4 p-3 bg-arc-50 dark:bg-arc-900/20 rounded-lg border border-arc-200 dark:border-arc-800">
+              <h4 className="text-xs font-semibold text-arc-700 dark:text-arc-300 mb-2 flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                Local Verification Data
+              </h4>
+              <div className="grid grid-cols-1 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Model Hash: </span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 break-all">
+                    {proof.metadata.modelHash}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Input Hash: </span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 break-all">
+                    {proof.metadata.inputHash}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Output Hash: </span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 break-all">
+                    {proof.metadata.outputHash}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Status</p>
@@ -184,19 +237,24 @@ function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded:
               </p>
             </div>
             <div className="col-span-2">
-              <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Request Hash</p>
-              <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all">
-                {proof.requestHash}
-              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Proof/Request Hash</p>
+              <div className="flex items-center gap-2">
+                <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all flex-1">
+                  {proof.requestHash}
+                </p>
+                <a
+                  href={`${explorerUrl}/tx/${proof.requestHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-arc-600 dark:text-arc-400 hover:underline flex items-center gap-1 text-xs whitespace-nowrap"
+                >
+                  View on Arc
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </div>
-            {proof.metadata.modelHash && proof.metadata.modelHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+            {hasVerificationData && (
               <>
-                <div className="col-span-2">
-                  <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Model Hash</p>
-                  <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all">
-                    {proof.metadata.modelHash}
-                  </p>
-                </div>
                 <div>
                   <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Proof Size</p>
                   <p className="font-medium text-slate-900 dark:text-white">
@@ -220,10 +278,21 @@ function ProofRow({ proof, expanded, onToggle }: { proof: ProofRecord; expanded:
               </div>
             )}
             <div className="col-span-2">
-              <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Validator</p>
-              <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all">
-                {proof.validatorAddress}
-              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mb-1">Attestor</p>
+              <div className="flex items-center gap-2">
+                <p className="font-mono text-xs text-slate-600 dark:text-slate-300 break-all flex-1">
+                  {proof.validatorAddress}
+                </p>
+                <a
+                  href={`${explorerUrl}/address/${proof.validatorAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-arc-600 dark:text-arc-400 hover:underline flex items-center gap-1 text-xs whitespace-nowrap"
+                >
+                  View
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -326,6 +395,7 @@ export function ProofExplorer({ agentId, limit = 10 }: ProofExplorerProps) {
   }, [agentId, publicClient]);
 
   const isArcNetwork = chainId === CHAIN_IDS.ARC_TESTNET || chainId === CHAIN_IDS.ARC_MAINNET;
+  const explorerUrl = getExplorerUrl(chainId);
 
   if (!PROOF_ATTESTATION_ADDRESS) {
     return (
@@ -362,7 +432,7 @@ export function ProofExplorer({ agentId, limit = 10 }: ProofExplorerProps) {
             <h3 className="font-semibold text-slate-900 dark:text-white">On-Chain Proofs</h3>
           </div>
           <a
-            href={`https://explorer.circle.com/address/${PROOF_ATTESTATION_ADDRESS}`}
+            href={`${explorerUrl}/address/${PROOF_ATTESTATION_ADDRESS}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-arc-600 dark:text-arc-400 hover:underline flex items-center gap-1"
@@ -446,6 +516,7 @@ export function ProofExplorer({ agentId, limit = 10 }: ProofExplorerProps) {
               proof={proof}
               expanded={expandedProof === proof.requestHash}
               onToggle={() => setExpandedProof(expandedProof === proof.requestHash ? null : proof.requestHash)}
+              explorerUrl={explorerUrl}
             />
           ))}
         </div>

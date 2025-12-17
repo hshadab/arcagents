@@ -15,6 +15,15 @@ import {
   ChevronUp,
   Zap,
 } from 'lucide-react';
+import { useChainId } from 'wagmi';
+import { CHAIN_IDS, arcTestnet, arcMainnet } from '@/lib/wagmi';
+
+function getExplorerUrl(chainId: number): string {
+  if (chainId === CHAIN_IDS.ARC_TESTNET) {
+    return arcTestnet.blockExplorers?.default.url || 'https://testnet.arcscan.app';
+  }
+  return arcMainnet.blockExplorers?.default.url || 'https://arcscan.app';
+}
 
 interface ExecutionLog {
   id: string;
@@ -55,7 +64,7 @@ function formatUSDC(atomic: string): string {
   return num < 0.01 ? num.toFixed(4) : num.toFixed(2);
 }
 
-function LogRow({ log, expanded, onToggle }: { log: ExecutionLog; expanded: boolean; onToggle: () => void }) {
+function LogRow({ log, expanded, onToggle, explorerUrl }: { log: ExecutionLog; expanded: boolean; onToggle: () => void; explorerUrl: string }) {
   return (
     <div className="border-b border-slate-100 dark:border-slate-800 last:border-0">
       <button
@@ -146,11 +155,13 @@ function LogRow({ log, expanded, onToggle }: { log: ExecutionLog; expanded: bool
                   </p>
                   {log.proofTxHash && (
                     <a
-                      href={`https://explorer.circle.com/tx/${log.proofTxHash}`}
+                      href={`${explorerUrl}/tx/${log.proofTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-arc-600 dark:text-arc-400 hover:underline flex items-center gap-1"
+                      title="View on Arc Explorer"
                     >
+                      View on Arc
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -182,6 +193,9 @@ export function ActivityDashboard({
   autoRefresh = false,
   refreshInterval = 30000,
 }: ActivityDashboardProps) {
+  const chainId = useChainId();
+  const explorerUrl = getExplorerUrl(chainId);
+
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -313,6 +327,7 @@ export function ActivityDashboard({
                 log={log}
                 expanded={expandedLog === log.id}
                 onToggle={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
+                explorerUrl={explorerUrl}
               />
             ))}
           </div>
