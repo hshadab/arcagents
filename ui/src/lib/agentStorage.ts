@@ -14,11 +14,23 @@ export interface LastExecution {
   amountPaid?: string;
 }
 
+export interface MultiChainWallets {
+  evm: {
+    address: string;
+    privateKey: string;  // Hex encoded
+  };
+  solana: {
+    address: string;
+    privateKey: string;  // Base58 encoded
+  };
+}
+
 export interface SavedAgent {
   id: string;
   name: string;
-  walletAddress: string;
-  walletPrivateKey?: string;  // For server-side signing (encrypted in production)
+  walletAddress: string;  // Primary display address (EVM)
+  walletPrivateKey?: string;  // Legacy - for backwards compatibility
+  wallets?: MultiChainWallets;  // Multi-chain wallet support
   ownerAddress: string;
   fundedAmount: string;
   createdAt: number;

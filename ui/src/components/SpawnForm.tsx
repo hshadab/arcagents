@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Bot, Wallet, DollarSign, Loader2, CheckCircle, AlertCircle, Shield, FileCheck, Brain, ExternalLink } from 'lucide-react';
+import { Bot, Wallet, DollarSign, Loader2, CheckCircle, AlertCircle, Shield, FileCheck, Brain, ExternalLink, Globe } from 'lucide-react';
 import type { X402Service } from '@arc-agent/sdk';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { getDecisionModel, suggestModelForService, type DecisionModel, type DecisionModelId } from '@/lib/models';
 import { useWalletAddress } from './Header';
 import { saveAgent } from '@/lib/agentStorage';
@@ -26,6 +28,7 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
   const [success, setSuccess] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentWalletAddress, setAgentWalletAddress] = useState<string | null>(null);
+  const [agentSolanaAddress, setAgentSolanaAddress] = useState<string | null>(null);
   const [fundedAmount, setFundedAmount] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,21 +77,35 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
     setError(null);
 
     try {
-      // Generate real wallet for the agent using viem
-      const privateKey = generatePrivateKey();
-      const account = privateKeyToAccount(privateKey);
+      // Generate EVM wallet (for Base, Ethereum, etc.)
+      const evmPrivateKey = generatePrivateKey();
+      const evmAccount = privateKeyToAccount(evmPrivateKey);
+
+      // Generate Solana wallet
+      const solanaKeypair = Keypair.generate();
+      const solanaPrivateKey = bs58.encode(solanaKeypair.secretKey);
+      const solanaAddress = solanaKeypair.publicKey.toBase58();
 
       const newAgentId = `agent-${Date.now().toString(36)}`;
-      const agentWallet = account.address;
       const agentName = name || (selectedService ? `${selectedService.name}-agent` : 'my-agent');
 
-      // Save agent to localStorage (including private key for server-side signing)
+      // Save agent to localStorage with multi-chain wallets
       // Note: In production, private keys should be encrypted or stored in a secure vault
       saveAgent({
         id: newAgentId,
         name: agentName,
-        walletAddress: agentWallet,
-        walletPrivateKey: privateKey,  // Store for autonomous execution
+        walletAddress: evmAccount.address,  // Primary display (EVM)
+        walletPrivateKey: evmPrivateKey,  // Legacy compatibility
+        wallets: {
+          evm: {
+            address: evmAccount.address,
+            privateKey: evmPrivateKey,
+          },
+          solana: {
+            address: solanaAddress,
+            privateKey: solanaPrivateKey,
+          },
+        },
         ownerAddress: savedAddress,
         fundedAmount: deposit,
         createdAt: Date.now(),
@@ -105,7 +122,8 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
       });
 
       setAgentId(newAgentId);
-      setAgentWalletAddress(agentWallet);
+      setAgentWalletAddress(evmAccount.address);
+      setAgentSolanaAddress(solanaAddress);
       setFundedAmount(deposit);
       setSuccess(true);
       onSuccess?.(newAgentId);
@@ -153,33 +171,54 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
           </div>
         </div>
 
-        {/* Agent Wallet Address */}
+        {/* Agent Wallet Addresses */}
         {agentWalletAddress && (
-          <div className="mb-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Agent Wallet (Arc Testnet):</p>
-            <p className="font-mono text-xs bg-arc-50 dark:bg-arc-900/30 px-3 py-2 rounded-lg text-arc-700 dark:text-arc-300 break-all">
-              {agentWalletAddress}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              This agent has its own dedicated wallet for x402 payments.
+          <div className="mb-4 space-y-3">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                <Globe className="w-3 h-3" />
+                EVM Wallet (Base, Ethereum):
+              </p>
+              <p className="font-mono text-xs bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg text-blue-700 dark:text-blue-300 break-all">
+                {agentWalletAddress}
+              </p>
+            </div>
+            {agentSolanaAddress && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <Globe className="w-3 h-3" />
+                  Solana Wallet:
+                </p>
+                <p className="font-mono text-xs bg-purple-50 dark:bg-purple-900/30 px-3 py-2 rounded-lg text-purple-700 dark:text-purple-300 break-all">
+                  {agentSolanaAddress}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              This agent has wallets on multiple chains for x402 payments.
             </p>
           </div>
         )}
 
         {/* Top up instructions */}
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-xs text-blue-700 dark:text-blue-300">
-            <strong>Need to add more funds?</strong> Send USDC to the agent wallet above via{' '}
-            <a
-              href="https://faucet.circle.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-blue-800 dark:hover:text-blue-200"
-            >
-              Circle Faucet
-            </a>
-            {' '}(select Arc Testnet).
+          <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+            <strong>Fund your agent with USDC:</strong>
           </p>
+          <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1 ml-3">
+            <li>• <strong>Base:</strong> Send USDC to the EVM wallet address</li>
+            <li>• <strong>Solana:</strong> Send USDC to the Solana wallet address</li>
+            <li>• For testnet, use{' '}
+              <a
+                href="https://faucet.circle.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-blue-800 dark:hover:text-blue-200"
+              >
+                Circle Faucet
+              </a>
+            </li>
+          </ul>
         </div>
 
         {/* Built-in Features */}
@@ -220,6 +259,7 @@ export function SpawnForm({ selectedService, onSuccess }: SpawnFormProps) {
               setSuccess(false);
               setAgentId(null);
               setAgentWalletAddress(null);
+              setAgentSolanaAddress(null);
               setFundedAmount(null);
               setName('');
             }}

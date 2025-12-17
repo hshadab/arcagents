@@ -43,6 +43,7 @@ interface ExecutionResult {
     };
   };
   error?: string;
+  note?: string;
   durationMs: number;
   executionType?: 'ml-agent' | 'simple-agent';
 }
@@ -93,7 +94,8 @@ export function AgentExecutionPanel({ agent, onExecutionComplete, onAgentUpdate 
           servicePrice: agent.connectedServicePrice,
           servicePayTo: agent.connectedServicePayTo,
           walletAddress: agent.walletAddress,
-          walletPrivateKey: agent.walletPrivateKey,  // For signing Arc transactions
+          walletPrivateKey: agent.walletPrivateKey,  // Legacy EVM key
+          wallets: agent.wallets,  // Multi-chain wallets (Base, Solana)
           // ML Agent fields
           zkmlEnabled: agent.features?.zkmlEnabled,
           modelName: agent.modelName,

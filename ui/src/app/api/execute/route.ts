@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { makeX402Request, makeX402PaidRequest, formatAmount } from '@/lib/x402Client';
-import { sendUsdcPayment, formatUsdcAmount } from '@/lib/arcPayment';
-import type { Hex, Address } from 'viem';
+import {
+  sendPayment,
+  detectNetwork,
+  simulatePayment,
+  formatUsdcAmount,
+  type WalletInfo,
+} from '@/lib/multiChainPayment';
+import type { MultiChainWallets } from '@/lib/agentStorage';
 
 interface ExecuteRequest {
   agentId: string;
@@ -10,8 +16,9 @@ interface ExecuteRequest {
   serviceName?: string;
   servicePrice?: string;        // Price in atomic units
   servicePayTo?: string;        // Payment recipient
-  walletAddress?: string;       // Agent wallet address
-  walletPrivateKey?: string;    // Agent wallet private key for signing
+  walletAddress?: string;       // Agent wallet address (EVM)
+  walletPrivateKey?: string;    // Legacy: EVM private key
+  wallets?: MultiChainWallets;  // Multi-chain wallets
   // ML Agent fields
   zkmlEnabled?: boolean;        // Whether this agent runs proofs
   modelName?: string;           // ONNX model name
@@ -78,6 +85,7 @@ export async function POST(request: NextRequest) {
       servicePayTo,
       walletAddress,
       walletPrivateKey,
+      wallets,
       zkmlEnabled,
       modelName,
       threshold = 0.7,
@@ -113,8 +121,12 @@ export async function POST(request: NextRequest) {
       payTo: servicePayTo || '0x0000000000000000000000000000000000000000',
       amount: servicePrice || '10000',
       asset: 'USDC',
-      network: 'arc-testnet',
+      network: 'base', // Default to Base for real services
     };
+
+    // Detect the correct network for payment
+    const paymentNetwork = detectNetwork(paymentInfo);
+    console.log(`[Execute] Detected payment network: ${paymentNetwork}`);
 
     // ========================================
     // ML AGENT FLOW: Model → Proof → Pay
@@ -184,11 +196,13 @@ export async function POST(request: NextRequest) {
       }
 
       // STEP 6: MAKE PAYMENT (only after proof is valid AND model approves)
-      console.log('[Execute] Step 5: Making payment (proof valid, model approved)...');
-      const payment = await makePayment(
+      console.log(`[Execute] Step 5: Making payment on ${paymentNetwork} (proof valid, model approved)...`);
+      const payment = await makeMultiChainPayment(
         walletAddress || `0x${agentId.slice(-40)}`,
         paymentInfo.payTo,
         paymentInfo.amount,
+        paymentNetwork,
+        wallets,
         walletPrivateKey
       );
 
@@ -261,11 +275,13 @@ export async function POST(request: NextRequest) {
     }
 
     // STEP 2: MAKE PAYMENT
-    console.log('[Execute] Step 2: Making payment...');
-    const payment = await makePayment(
+    console.log(`[Execute] Step 2: Making payment on ${paymentNetwork}...`);
+    const payment = await makeMultiChainPayment(
       walletAddress || `0x${agentId.slice(-40)}`,
       paymentInfo.payTo,
       paymentInfo.amount,
+      paymentNetwork,
+      wallets,
       walletPrivateKey
     );
 
@@ -286,11 +302,43 @@ export async function POST(request: NextRequest) {
       payer: walletAddress || agentId,
     });
 
-    await logExecution(agentId, agentName || agentId, serviceUrl, serviceName, payment, null, serviceResponse.data, Date.now() - startTime);
+    console.log('[Execute] Service response:', serviceResponse.success ? 'success' : 'failed', serviceResponse.statusCode);
+
+    // Determine what data to return
+    let responseData: unknown;
+    let note: string | undefined;
+
+    if (serviceResponse.success && serviceResponse.data) {
+      // Real service response
+      responseData = serviceResponse.data;
+    } else if (payment.simulated) {
+      // Payment was simulated - service likely rejected it
+      // Return probe metadata as demo data
+      responseData = {
+        _demo: true,
+        _note: 'Payment simulated - showing service metadata. Real x402 services require on-chain payment on their specific network.',
+        serviceUrl,
+        serviceName: serviceName || 'Unknown',
+        serviceMetadata: probeResult.metadata,
+        paymentInfo: {
+          required: paymentInfo.amount,
+          network: paymentInfo.network,
+          asset: paymentInfo.asset,
+          recipient: paymentInfo.payTo,
+        },
+      };
+      note = 'Simulated payment - real services require actual on-chain payment';
+    } else {
+      // Real payment but service failed
+      responseData = serviceResponse.data || { error: 'Service did not return data' };
+    }
+
+    await logExecution(agentId, agentName || agentId, serviceUrl, serviceName, payment, null, responseData, Date.now() - startTime);
 
     return NextResponse.json({
       success: true,
-      data: serviceResponse.data,
+      data: responseData,
+      note,
       payment: {
         amount: paymentInfo.amount,
         amountFormatted: formatAmount(paymentInfo.amount),
@@ -489,14 +537,16 @@ async function runComplianceCheck(
 }
 
 /**
- * Make USDC payment on Arc Testnet
+ * Make USDC payment on the appropriate network
  */
-async function makePayment(
+async function makeMultiChainPayment(
   from: string,
   to: string,
   amount: string,
-  privateKey?: string
-): Promise<{ success: boolean; txHash?: string; simulated: boolean; error?: string; complianceChecked: boolean }> {
+  network: string,
+  wallets?: MultiChainWallets,
+  legacyPrivateKey?: string
+): Promise<{ success: boolean; txHash?: string; simulated: boolean; error?: string; complianceChecked: boolean; network: string }> {
   // Compliance check
   const compliance = await runComplianceCheck(from, to, formatUsdcAmount(amount));
   if (!compliance.approved) {
@@ -505,40 +555,87 @@ async function makePayment(
       error: `Compliance failed: ${compliance.reason}`,
       simulated: false,
       complianceChecked: true,
+      network,
     };
   }
 
-  // Simulate if no private key
-  if (!privateKey) {
+  // Build wallet info from either multi-chain wallets or legacy key
+  let walletInfo: WalletInfo | null = null;
+
+  if (wallets) {
+    walletInfo = {
+      evm: wallets.evm,
+      solana: wallets.solana,
+    };
+  } else if (legacyPrivateKey) {
+    // Legacy: only EVM wallet available
+    walletInfo = {
+      evm: {
+        address: from,
+        privateKey: legacyPrivateKey,
+      },
+      solana: {
+        address: '',
+        privateKey: '',
+      },
+    };
+  }
+
+  // Simulate if no wallet info
+  if (!walletInfo || (!walletInfo.evm.privateKey && !walletInfo.solana.privateKey)) {
+    console.log(`[Execute] No wallet keys available, simulating payment on ${network}`);
+    const simResult = simulatePayment(network);
     return {
-      success: true,
-      txHash: `0xsim${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`,
-      simulated: true,
+      ...simResult,
+      complianceChecked: true,
+    };
+  }
+
+  // Check if we have the right wallet for this network
+  const isSolana = network.toLowerCase().includes('solana');
+  if (isSolana && !walletInfo.solana.privateKey) {
+    console.log(`[Execute] No Solana wallet, simulating payment`);
+    const simResult = simulatePayment(network);
+    return {
+      ...simResult,
+      complianceChecked: true,
+    };
+  }
+  if (!isSolana && !walletInfo.evm.privateKey) {
+    console.log(`[Execute] No EVM wallet, simulating payment`);
+    const simResult = simulatePayment(network);
+    return {
+      ...simResult,
       complianceChecked: true,
     };
   }
 
   try {
-    const result = await sendUsdcPayment(privateKey as Hex, to as Address, amount);
+    console.log(`[Execute] Attempting real payment on ${network}`);
+    const result = await sendPayment(walletInfo, to, amount, network);
+
     if (!result.success) {
+      // Fall back to simulation if real payment fails
+      console.log(`[Execute] Real payment failed: ${result.error}, simulating`);
+      const simResult = simulatePayment(network);
       return {
-        success: true,
-        txHash: `0xsim${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`,
-        simulated: true,
+        ...simResult,
         complianceChecked: true,
       };
     }
+
     return {
       success: true,
       txHash: result.txHash,
       simulated: false,
       complianceChecked: true,
+      network: result.network,
     };
-  } catch {
+  } catch (error) {
+    console.log(`[Execute] Payment error, simulating:`, error);
+    const simResult = simulatePayment(network);
     return {
-      success: true,
-      txHash: `0xsim${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`,
-      simulated: true,
+      ...simResult,
       complianceChecked: true,
     };
   }
