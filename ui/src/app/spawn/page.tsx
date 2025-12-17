@@ -41,9 +41,15 @@ function SpawnPageContent() {
   const router = useRouter();
   const serviceUrl = searchParams.get('service');
   const [selectedService, setSelectedService] = useState<X402Service | null>(null);
-  const [loading, setLoading] = useState(!!serviceUrl);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Agents must be tied to a service - redirect if none provided
+    if (!serviceUrl) {
+      router.replace('/');
+      return;
+    }
+
     if (serviceUrl) {
       // Fetch service details from Bazaar API
       const fetchService = async () => {
@@ -86,12 +92,12 @@ function SpawnPageContent() {
 
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Spawn an Agent
+          Launch Agent
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
           {selectedService
-            ? `Create an agent to interact with ${selectedService.name}`
-            : 'Create a new Arc Agents instance with x402 payment capabilities'}
+            ? `Create an agent to consume ${selectedService.name}`
+            : 'Loading service details...'}
         </p>
       </div>
 

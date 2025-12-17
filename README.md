@@ -98,7 +98,7 @@ npm run dev:ui
 
 The UI lets you:
 - Browse available x402 services from the Bazaar
-- Spawn agents with auto-generated wallets
+- Launch agents for specific services (agents are always tied to a service)
 - Execute agents manually or on schedule
 - View model inference results and zkML proofs
 - Track payments and activity history

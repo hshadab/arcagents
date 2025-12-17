@@ -87,12 +87,14 @@ This ensures verifiable, accountable AI decisions on-chain.
 
 | Route | Description |
 |-------|-------------|
-| `/` | Landing page with framework overview |
-| `/spawn` | Create new agents with wallet generation |
+| `/` | Service discovery - browse x402 services and launch agents |
+| `/spawn?service=<url>` | Create agent for a specific service (redirects to `/` if no service) |
 | `/agents` | Manage agents, execute, view history |
 | `/activity` | Global activity log with proof submissions |
 | `/how-to-use` | Step-by-step usage guide |
 | `/about` | About Arc Agents framework |
+
+**Note**: Agents must be tied to a specific x402 service. Click "Launch Agent" on any service card to create an agent for that service.
 
 ## API Routes
 

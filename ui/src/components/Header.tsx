@@ -91,12 +91,6 @@ export function Header() {
           >
             How to Use
           </Link>
-          <Link
-            href="/spawn"
-            className="px-4 py-1.5 bg-arc-500 hover:bg-arc-600 text-white font-medium rounded-lg transition-colors"
-          >
-            Launch Agent
-          </Link>
         </nav>
 
         {/* Simplified Wallet - Just enter address */}
