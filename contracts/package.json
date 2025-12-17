@@ -1,0 +1,29 @@
+{
+  "name": "arc-agent-contracts",
+  "version": "1.0.0",
+  "description": "ERC-8004 compliant smart contracts for Arc Agents with Circle wallet integration",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network arcTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network arcMainnet",
+    "verify": "hardhat verify --network arcTestnet"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.19.0"
+  },
+  "keywords": [
+    "erc-8004",
+    "arc",
+    "zkml",
+    "circle",
+    "autonomous-agents"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,32 @@
+# Render.com Blueprint for Arc Agent
+# Deploy: https://render.com/deploy?repo=https://github.com/your-repo/arcagent
+
+services:
+  # Web UI (Next.js)
+  - type: web
+    name: arc-agent-ui
+    runtime: node
+    buildCommand: npm install && npm run build:sdk && npm run build:ui
+    startCommand: npm run start --workspace=ui
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID
+        sync: false
+      - key: CIRCLE_API_KEY
+        sync: false
+    healthCheckPath: /
+
+  # Agent Runtime (Cron Job)
+  - type: cron
+    name: arc-agent-runtime
+    runtime: node
+    schedule: "*/15 * * * *"  # Run every 15 minutes
+    buildCommand: npm install && npm run build:sdk && npm run build:runtime
+    startCommand: npm run run-agents
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AGENT_CONFIGS
+        sync: false
+      # Add AGENT_*_KEY vars for each agent's private key

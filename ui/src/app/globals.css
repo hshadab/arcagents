@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --foreground: 15 23 42;
+    --background: 248 250 252;
+    --arc-primary: 59 130 246;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --foreground: 248 250 252;
+      --background: 15 23 42;
+    }
+  }
+
+  html {
+    @apply antialiased scroll-smooth;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Better selection colors */
+  ::selection {
+    @apply bg-arc-500/30 text-arc-900 dark:text-arc-100;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .card-hover {
+    @apply bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-arc-300 dark:hover:border-arc-700 transition-all;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-gradient-to-r from-arc-500 to-arc-600 hover:from-arc-600 hover:to-arc-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium rounded-lg transition-colors;
+  }
+
+  .btn-outline {
+    @apply px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium rounded-lg transition-colors;
+  }
+
+  /* Input styling */
+  .input {
+    @apply w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-arc-500 focus:border-transparent transition-all;
+  }
+
+  /* Badge styling */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300;
+  }
+
+  .badge-error {
+    @apply bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300;
+  }
+
+  .badge-info {
+    @apply bg-arc-100 dark:bg-arc-900/30 text-arc-700 dark:text-arc-300;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-arc-500 to-arc-600 bg-clip-text text-transparent;
+  }
+
+  /* Subtle glow effects */
+  .glow-arc {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+  }
+
+  .glow-arc-hover:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.25);
+  }
+}

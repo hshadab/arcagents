@@ -1,0 +1,46 @@
+{
+  "name": "arcagent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arc Agent - Framework for spawning and managing AI agents with x402 payment capabilities on Arc L1",
+  "workspaces": [
+    "contracts",
+    "sdk",
+    "cli",
+    "ui",
+    "runtime",
+    "oracle"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:sdk": "npm run build --workspace=sdk",
+    "build:cli": "npm run build --workspace=cli",
+    "build:ui": "npm run build --workspace=ui",
+    "build:contracts": "npm run compile --workspace=contracts",
+    "build:runtime": "npm run build --workspace=runtime",
+    "build:oracle": "npm run build --workspace=oracle",
+    "dev": "npm run dev --workspaces --if-present",
+    "run-agents": "npm run start --workspace=runtime",
+    "run-oracle": "npm run start --workspace=oracle",
+    "dev:oracle": "npm run dev --workspace=oracle",
+    "dev:ui": "npm run dev --workspace=ui",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf node_modules sdk/dist cli/dist ui/.next contracts/artifacts contracts/cache"
+  },
+  "keywords": [
+    "arc",
+    "agent",
+    "x402",
+    "ai",
+    "payments",
+    "usdc",
+    "blockchain",
+    "circle"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0 <23.0.0"
+  }
+}
