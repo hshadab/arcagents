@@ -5,7 +5,7 @@ import { Bot, Wallet, ArrowRight, Plus, Loader2, Shield, AlertCircle, ExternalLi
 import Link from 'next/link';
 import { ProofStatus, ValidationResponse, type ProofItem } from '@/components/ProofStatus';
 import { useWalletAddress } from '@/components/Header';
-import { getSavedAgents, removeAgent as removeAgentFromStorage, type SavedAgent } from '@/lib/agentStorage';
+import { getSavedAgents, removeAgent as removeAgentFromStorage, clearAllAgents, type SavedAgent } from '@/lib/agentStorage';
 import { AgentExecutionPanel } from '@/components/AgentExecutionPanel';
 import { ServiceOutputDisplay } from '@/components/ServiceOutputDisplay';
 
@@ -187,13 +187,30 @@ export default function AgentsPage() {
           </p>
         </div>
 
-        <Link
-          href="/spawn"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-arc-500 to-arc-600 hover:from-arc-600 hover:to-arc-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
-        >
-          <Plus className="w-5 h-5" />
-          Launch Agent
-        </Link>
+        <div className="flex items-center gap-3">
+          {agents.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('Delete all agents? This cannot be undone.')) {
+                  clearAllAgents();
+                  setAgents([]);
+                  setSavedAgents([]);
+                }
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium rounded-lg transition-colors text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete All
+            </button>
+          )}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-arc-500 to-arc-600 hover:from-arc-600 hover:to-arc-700 text-white font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
+          >
+            <Plus className="w-5 h-5" />
+            Launch Agent
+          </Link>
+        </div>
       </div>
 
       {/* How Agents Work - Explanatory Section */}
