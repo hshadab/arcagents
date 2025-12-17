@@ -55,8 +55,18 @@ export function getSavedAgents(): SavedAgent[] {
 
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    // Validate it's an array
+    if (!Array.isArray(parsed)) {
+      console.error('[AgentStorage] Invalid data format, clearing storage');
+      localStorage.removeItem(STORAGE_KEY);
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('[AgentStorage] Failed to parse agents, clearing corrupted data:', error);
+    localStorage.removeItem(STORAGE_KEY);
     return [];
   }
 }
