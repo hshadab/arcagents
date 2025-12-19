@@ -5,6 +5,7 @@ import { WagmiProvider, State } from 'wagmi';
 import { ConnectKitProvider } from 'connectkit';
 import { config } from '@/lib/wagmi';
 import { useState } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -22,23 +23,25 @@ export function Providers({ children, initialState }: ProvidersProps) {
   }));
 
   return (
-    <WagmiProvider config={config} initialState={initialState}>
-      <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider
-          theme="auto"
-          mode="auto"
-          options={{
-            // Arc Testnet as default chain
-            initialChainId: 5042002,
-            // Simplify wallet options
-            hideQuestionMarkCTA: true,
-            hideNoWalletCTA: true,
-            walletConnectCTA: 'modal',
-          }}
-        >
-          {children}
-        </ConnectKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ErrorBoundary>
+      <WagmiProvider config={config} initialState={initialState}>
+        <QueryClientProvider client={queryClient}>
+          <ConnectKitProvider
+            theme="auto"
+            mode="auto"
+            options={{
+              // Arc Testnet as default chain
+              initialChainId: 5042002,
+              // Simplify wallet options
+              hideQuestionMarkCTA: true,
+              hideNoWalletCTA: true,
+              walletConnectCTA: 'modal',
+            }}
+          >
+            {children}
+          </ConnectKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ErrorBoundary>
   );
 }

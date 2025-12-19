@@ -11,13 +11,16 @@ import type { DecisionModel, DecisionModelId, ServiceCategory } from '../types.j
 
 /**
  * Registry of all premade decision models
+ *
+ * Model hashes are SHA256 hashes of the ONNX files in ui/public/models/
+ * To regenerate: sha256sum ui/public/models/*.onnx
  */
 export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
   'trading-signal': {
     id: 'trading-signal',
     name: 'Trading Signal Classifier',
     description: 'Analyzes market data and outputs a buy/sell/hold signal. Used before executing trades.',
-    modelHash: '0x1111111111111111111111111111111111111111111111111111111111111111' as Hash,
+    modelHash: '0x64f8079d6f44d488e6a0220b59caab08b638c53577544f8740bb31458254fd0a' as Hash,
     defaultThreshold: 0.7,
     inputDescription: 'Price data, volume, technical indicators',
     outputDescription: '0-1 score where >0.7 = buy signal, <0.3 = sell signal',
@@ -28,7 +31,7 @@ export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
     id: 'opportunity-detector',
     name: 'Opportunity Detector',
     description: 'Detects profitable opportunities from DeFi pool data, yield rates, or arbitrage conditions.',
-    modelHash: '0x2222222222222222222222222222222222222222222222222222222222222222' as Hash,
+    modelHash: '0xcc8d8c9afab8191a25967f35a58fea9abb4920946f4cbc43b5f9b17eebc1a967' as Hash,
     defaultThreshold: 0.6,
     inputDescription: 'Pool TVL, APY, liquidity depth, historical performance',
     outputDescription: '0-1 score indicating opportunity quality',
@@ -39,7 +42,7 @@ export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
     id: 'risk-scorer',
     name: 'Risk Assessment Scorer',
     description: 'Evaluates risk level of tokens, protocols, or counterparties before interaction.',
-    modelHash: '0x3333333333333333333333333333333333333333333333333333333333333333' as Hash,
+    modelHash: '0x64f8079d6f44d488e6a0220b59caab08b638c53577544f8740bb31458254fd0a' as Hash,
     defaultThreshold: 0.8,
     inputDescription: 'Token metadata, contract analysis, holder distribution',
     outputDescription: '0-1 safety score where >0.8 = low risk',
@@ -50,7 +53,7 @@ export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
     id: 'sentiment-classifier',
     name: 'Sentiment Classifier',
     description: 'Analyzes news, social media, or market sentiment to determine market mood.',
-    modelHash: '0x4444444444444444444444444444444444444444444444444444444444444444' as Hash,
+    modelHash: '0x190d1cebac1eb7c65268fd3762dfeb5e4517330594e4de17b35848e42155cb81' as Hash,
     defaultThreshold: 0.65,
     inputDescription: 'Text content, social metrics, news headlines',
     outputDescription: '0-1 sentiment score where >0.65 = positive',
@@ -61,7 +64,7 @@ export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
     id: 'threshold-checker',
     name: 'Threshold Checker',
     description: 'Simple model that checks if input values meet configured thresholds. General purpose.',
-    modelHash: '0x5555555555555555555555555555555555555555555555555555555555555555' as Hash,
+    modelHash: '0xdc568010ab721d90ec93ff9b7d755010c84767932d9559b705025b2c7d6b86ab' as Hash,
     defaultThreshold: 0.5,
     inputDescription: 'Numeric values to check against thresholds',
     outputDescription: '0 or 1 based on threshold check',
@@ -72,7 +75,7 @@ export const DECISION_MODELS: Record<DecisionModelId, DecisionModel> = {
     id: 'anomaly-detector',
     name: 'Anomaly Detector',
     description: 'Detects unusual patterns or outliers in data. Used for security or monitoring.',
-    modelHash: '0x6666666666666666666666666666666666666666666666666666666666666666' as Hash,
+    modelHash: '0xfd58069b46ab7a53066ec58a3994dd4b73d32be0ad31dbf55f1d3a97539170f3' as Hash,
     defaultThreshold: 0.9,
     inputDescription: 'Time series data, transaction patterns, metrics',
     outputDescription: '0-1 normality score where >0.9 = normal (no anomaly)',

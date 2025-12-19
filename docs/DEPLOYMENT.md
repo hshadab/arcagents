@@ -13,15 +13,23 @@ Complete guide for deploying Arc Agent infrastructure to Arc testnet and mainnet
 ### Required Accounts & Keys
 
 1. **Deployer Wallet**: EOA with sufficient ARC tokens for gas
-2. **Circle Developer Account**: For Programmable Wallets & Compliance (optional)
+2. **Circle Developer Account**: For Compliance Engine integration (optional)
 3. **USDC**: Test USDC on Arc testnet
 
 ### Network Information
 
-| Network | Chain ID | RPC URL | Explorer |
-|---------|----------|---------|----------|
-| Arc Testnet | 5042002 | https://rpc.testnet.arc.network | https://testnet.arcscan.app |
-| Arc Mainnet | 5042001 | https://rpc.arc.network | https://arcscan.app |
+Arc Agents operates on **two networks**:
+
+| Network | Chain ID | RPC URL | Purpose |
+|---------|----------|---------|---------|
+| Arc Testnet | 5042002 | https://rpc.testnet.arc.network | Proofs, contracts, identity |
+| Arc Mainnet | 5042001 | https://rpc.arc.network | (not yet live) |
+| Base | 8453 | https://mainnet.base.org | x402 service payments |
+| Base Sepolia | 84532 | https://sepolia.base.org | Testing x402 payments |
+
+**Why two networks?**
+- **Arc**: Home chain for Arc infrastructure (zkML proofs, identity, smart contracts)
+- **Base**: Where x402 services accept payment (97% of Coinbase Bazaar services)
 
 ---
 
@@ -30,8 +38,8 @@ Complete guide for deploying Arc Agent infrastructure to Arc testnet and mainnet
 ### Clone & Install
 
 ```bash
-git clone https://github.com/your-org/arcagent.git
-cd arcagent
+git clone https://github.com/hshadab/arcagents.git
+cd arcagents
 npm install
 ```
 
@@ -70,17 +78,22 @@ CIRCLE_ENTITY_SECRET=your_entity_secret
 
 ## Step 2: Get Testnet Tokens
 
-### Arc Testnet Faucet
+### Arc Testnet Tokens
 
 1. Visit the Arc testnet faucet (check Arc docs for URL)
 2. Connect your deployer wallet
-3. Request test ARC tokens
+3. Request test ARC tokens for gas
 
-### Testnet USDC
+### Testnet USDC (Both Networks)
 
-1. Visit [Circle Faucet](https://faucet.circle.com/)
-2. Select Arc Testnet
-3. Request test USDC
+Fund the same address on **both** Arc Testnet and Base Sepolia:
+
+| Network | How to Fund | Purpose |
+|---------|-------------|---------|
+| **Arc Testnet** | [Circle Faucet](https://faucet.circle.com) → "Arc Testnet" | Proof attestations, contracts |
+| **Base Sepolia** | [Circle Faucet](https://faucet.circle.com) → "Base Sepolia" | Testing x402 payments |
+
+**Note**: EVM addresses work on both networks - same address, different chains.
 
 ---
 
@@ -186,7 +199,76 @@ npx hardhat verify --network arcTestnet 0x106e73c96da621826d6923faA3361004e2db72
 
 ---
 
-## Step 5: Deploy UI
+## Step 5: Deploy JOLT-Atlas SNARK Prover
+
+The SNARK prover generates real zero-knowledge proofs for ML agent decisions.
+
+### Build the Prover
+
+```bash
+# From project root
+cd jolt-atlas-fork
+
+# Build (first build ~12 minutes)
+cargo build --release -p arc-prover
+
+# Verify models are present
+ls -la arc-prover/models/*.onnx
+```
+
+### Run the Prover
+
+**Development:**
+```bash
+MODELS_DIR=./arc-prover/models PORT=3001 cargo run --release -p arc-prover
+```
+
+**Production (systemd):**
+```bash
+# Create service file
+sudo nano /etc/systemd/system/arc-prover.service
+```
+
+```ini
+[Unit]
+Description=Arc Agent JOLT-Atlas SNARK Prover
+After=network.target
+
+[Service]
+Type=simple
+User=arc
+WorkingDirectory=/opt/arcagent/jolt-atlas-fork
+Environment=MODELS_DIR=/opt/arcagent/jolt-atlas-fork/arc-prover/models
+Environment=PORT=3001
+Environment=RUST_LOG=info
+ExecStart=/opt/arcagent/jolt-atlas-fork/target/release/arc-prover
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable arc-prover
+sudo systemctl start arc-prover
+```
+
+### Prover Performance
+
+| Model | Proof Time | Proof Size |
+|-------|-----------|------------|
+| threshold-checker | ~5s | ~55KB |
+| opportunity-detector | ~8s | ~45KB |
+| trading-signal | ~12s | ~55KB |
+
+**Requirements:**
+- 8GB+ RAM (5-6GB during proof generation)
+- First proof for each model includes ~30s preprocessing
+
+---
+
+## Step 6: Deploy UI
 
 ### Configure UI Environment
 
@@ -208,9 +290,14 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 NEXT_PUBLIC_ARC_AGENT_ADDRESS=0x...
 NEXT_PUBLIC_ARC_PROOF_ATTESTATION_ADDRESS=0xBE9a5DF7C551324CB872584C6E5bF56799787952
 
+# JOLT-Atlas SNARK Prover (required for real proofs)
+JOLT_ATLAS_SERVICE_URL=http://localhost:3001
+
 # Circle API (for server-side calls)
 CIRCLE_API_KEY=your_circle_api_key
 ```
+
+**Note:** Without `JOLT_ATLAS_SERVICE_URL`, the UI generates commitment proofs (256 bytes) instead of real SNARK proofs (45-55KB).
 
 ### Build & Deploy UI
 
@@ -249,7 +336,7 @@ EXPOSE 3000
 
 ---
 
-## Step 6: Deploy Oracle Service
+## Step 7: Deploy Oracle Service
 
 The Compliance Oracle bridges Circle's Compliance Engine to on-chain.
 
@@ -313,7 +400,7 @@ CMD ["npm", "run", "run-oracle"]
 
 ---
 
-## Step 7: Deploy Runtime (Agent Scheduler)
+## Step 8: Deploy Runtime (Agent Scheduler)
 
 The Runtime executes agents on a schedule.
 
@@ -356,11 +443,12 @@ crontab -e
 
 ---
 
-## Step 8: Post-Deployment Checklist
+## Step 9: Post-Deployment Checklist
 
 ### Verify Deployment
 
 - [ ] All 6 contracts deployed and verified
+- [ ] SNARK prover running and accessible
 - [ ] UI accessible and connected to correct network
 - [ ] Oracle service running and authorized
 - [ ] Runtime cron job scheduled
@@ -441,10 +529,23 @@ npx hardhat run scripts/deploy.js --network arcMainnet
 - Rebuild UI after changing environment variables
 - Check browser console for errors
 
+### "SNARK prover not responding"
+
+- Check prover is running: `curl http://localhost:3001/health`
+- Verify models exist: `ls jolt-atlas-fork/arc-prover/models/*.onnx`
+- Check prover logs for errors
+- Ensure 8GB+ RAM available
+
+### "Proofs are commitment proofs (256 bytes) instead of SNARK proofs"
+
+- Set `JOLT_ATLAS_SERVICE_URL=http://localhost:3001` in `ui/.env.local`
+- Restart the UI: `npm run dev` or rebuild for production
+- Verify prover is accessible from UI server
+
 ---
 
 ## Support
 
-- **GitHub Issues**: [github.com/your-org/arcagent/issues](https://github.com/your-org/arcagent/issues)
+- **GitHub Issues**: [github.com/hshadab/arcagents/issues](https://github.com/hshadab/arcagents/issues)
 - **Discord**: [discord.gg/arcnetwork](https://discord.gg/arcnetwork)
 - **Documentation**: [docs.arc.network](https://docs.arc.network)

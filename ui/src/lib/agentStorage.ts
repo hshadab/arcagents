@@ -14,23 +14,11 @@ export interface LastExecution {
   amountPaid?: string;
 }
 
-export interface MultiChainWallets {
-  evm: {
-    address: string;
-    privateKey: string;  // Hex encoded
-  };
-  solana: {
-    address: string;
-    privateKey: string;  // Base58 encoded
-  };
-}
-
 export interface SavedAgent {
   id: string;
   name: string;
-  walletAddress: string;  // Primary display address (EVM)
-  walletPrivateKey?: string;  // Legacy - for backwards compatibility
-  wallets?: MultiChainWallets;  // Multi-chain wallet support
+  walletAddress: string;  // EVM wallet address
+  walletPrivateKey: string;  // EVM private key (hex encoded)
   ownerAddress: string;
   fundedAmount: string;
   createdAt: number;
@@ -38,6 +26,7 @@ export interface SavedAgent {
   connectedServiceUrl?: string;
   connectedServicePrice?: string;
   connectedServicePayTo?: string;
+  connectedServiceCategory?: string;  // Service category for spending tracking
   features: {
     zkmlEnabled: boolean;
     complianceEnabled: boolean;
@@ -63,12 +52,52 @@ export function getSavedAgents(): SavedAgent[] {
       localStorage.removeItem(STORAGE_KEY);
       return [];
     }
-    return parsed;
+    // Migrate legacy agents that may have multi-chain wallet structure
+    return parsed.map(migrateAgent);
   } catch (error) {
     console.error('[AgentStorage] Failed to parse agents, clearing corrupted data:', error);
     localStorage.removeItem(STORAGE_KEY);
     return [];
   }
+}
+
+/**
+ * Migrate legacy agent format to current format
+ * Handles old multi-chain wallet structure
+ */
+function migrateAgent(agent: Record<string, unknown>): SavedAgent {
+  let walletAddress = String(agent.walletAddress || '');
+  let walletPrivateKey = String(agent.walletPrivateKey || '');
+
+  // If agent has old 'wallets' structure, extract EVM wallet
+  if (agent.wallets && typeof agent.wallets === 'object') {
+    const wallets = agent.wallets as Record<string, unknown>;
+    if (wallets.evm && typeof wallets.evm === 'object') {
+      const evm = wallets.evm as Record<string, unknown>;
+      walletAddress = String(evm.address || walletAddress);
+      walletPrivateKey = String(evm.privateKey || walletPrivateKey);
+    }
+  }
+
+  return {
+    id: String(agent.id || ''),
+    name: String(agent.name || ''),
+    walletAddress,
+    walletPrivateKey,
+    ownerAddress: String(agent.ownerAddress || ''),
+    fundedAmount: String(agent.fundedAmount || '0'),
+    createdAt: Number(agent.createdAt) || Date.now(),
+    connectedService: agent.connectedService ? String(agent.connectedService) : undefined,
+    connectedServiceUrl: agent.connectedServiceUrl ? String(agent.connectedServiceUrl) : undefined,
+    connectedServicePrice: agent.connectedServicePrice ? String(agent.connectedServicePrice) : undefined,
+    connectedServicePayTo: agent.connectedServicePayTo ? String(agent.connectedServicePayTo) : undefined,
+    connectedServiceCategory: agent.connectedServiceCategory ? String(agent.connectedServiceCategory) : undefined,
+    features: (agent.features as SavedAgent['features']) || { zkmlEnabled: false, complianceEnabled: true },
+    modelName: agent.modelName ? String(agent.modelName) : undefined,
+    threshold: agent.threshold ? Number(agent.threshold) : undefined,
+    schedule: agent.schedule as ScheduleConfig | undefined,
+    lastExecution: agent.lastExecution as LastExecution | undefined,
+  };
 }
 
 export function saveAgent(agent: SavedAgent): void {

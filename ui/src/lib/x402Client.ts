@@ -5,11 +5,17 @@
  * with payment details, and clients retry with payment proof in headers.
  */
 
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  X402_HEADERS,
+  DEFAULT_NETWORK,
+} from './constants';
+
 export interface X402PaymentInfo {
   payTo: string;           // Recipient address
   amount: string;          // Amount in atomic units (6 decimals for USDC)
   asset: string;           // Asset type (e.g., "USDC")
-  network: string;         // Network (e.g., "arc-testnet")
+  network: string;         // Network (e.g., "base")
   validUntil?: number;     // Payment validity timestamp
 }
 
@@ -34,11 +40,22 @@ export interface X402ExecutionResult<T = unknown> {
 }
 
 /**
+ * Create an AbortController with timeout
+ */
+function createTimeoutController(timeoutMs: number): { controller: AbortController; timeoutId: NodeJS.Timeout } {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  return { controller, timeoutId };
+}
+
+/**
  * Parse 402 Payment Required response to extract payment info
  */
 export function parsePaymentRequired(headers: Headers, body?: unknown): X402PaymentInfo | null {
   // Check for X-Payment header (common x402 format)
-  const xPayment = headers.get('X-Payment');
+  const xPayment = headers.get(X402_HEADERS.PAYMENT);
   if (xPayment) {
     try {
       return JSON.parse(xPayment);
@@ -48,7 +65,7 @@ export function parsePaymentRequired(headers: Headers, body?: unknown): X402Paym
   }
 
   // Check for WWW-Authenticate header with payment scheme
-  const wwwAuth = headers.get('WWW-Authenticate');
+  const wwwAuth = headers.get(X402_HEADERS.WWW_AUTHENTICATE);
   if (wwwAuth && wwwAuth.includes('X402')) {
     // Parse X402 realm="...", payTo="...", amount="..."
     const payTo = wwwAuth.match(/payTo="([^"]+)"/)?.[1];
@@ -61,7 +78,7 @@ export function parsePaymentRequired(headers: Headers, body?: unknown): X402Paym
         payTo,
         amount,
         asset: asset || 'USDC',
-        network: network || 'arc-testnet',
+        network: network || DEFAULT_NETWORK,
       };
     }
   }
@@ -74,7 +91,7 @@ export function parsePaymentRequired(headers: Headers, body?: unknown): X402Paym
         payTo: String(b.payTo),
         amount: String(b.amount),
         asset: String(b.asset || 'USDC'),
-        network: String(b.network || 'arc-testnet'),
+        network: String(b.network || DEFAULT_NETWORK),
       };
     }
     // Nested payment object
@@ -85,7 +102,7 @@ export function parsePaymentRequired(headers: Headers, body?: unknown): X402Paym
           payTo: String(p.payTo),
           amount: String(p.amount),
           asset: String(p.asset || 'USDC'),
-          network: String(p.network || 'arc-testnet'),
+          network: String(p.network || DEFAULT_NETWORK),
         };
       }
     }
@@ -95,22 +112,28 @@ export function parsePaymentRequired(headers: Headers, body?: unknown): X402Paym
 }
 
 /**
- * Make a request to an x402 service
+ * Make a request to an x402 service with timeout
  * Returns payment info if 402 is received, or data if successful
  */
 export async function makeX402Request<T = unknown>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS
 ): Promise<X402Response<T>> {
+  const { controller, timeoutId } = createTimeoutController(timeoutMs);
+
   try {
     const response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...options.headers,
       },
     });
+
+    clearTimeout(timeoutId);
 
     // Try to parse response body
     let body: unknown;
@@ -162,6 +185,17 @@ export async function makeX402Request<T = unknown>(
       statusCode: response.status,
     };
   } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Handle timeout specifically
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        success: false,
+        error: `Request timed out after ${timeoutMs}ms`,
+        statusCode: 0,
+      };
+    }
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
@@ -180,7 +214,8 @@ export async function makeX402PaidRequest<T = unknown>(
     amount: string;
     payer: string;
   },
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS
 ): Promise<X402Response<T>> {
   // Add payment proof to headers
   const paymentHeader = JSON.stringify({
@@ -194,10 +229,10 @@ export async function makeX402PaidRequest<T = unknown>(
     ...options,
     headers: {
       ...options.headers,
-      'X-Payment-Proof': paymentHeader,
-      'X-Payment': paymentHeader, // Some services use this header
+      [X402_HEADERS.PAYMENT_PROOF]: paymentHeader,
+      [X402_HEADERS.PAYMENT]: paymentHeader, // Some services use this header
     },
-  });
+  }, timeoutMs);
 }
 
 /**

@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { SpawnForm } from '@/components/SpawnForm';
+import { LaunchForm } from '@/components/LaunchForm';
 import type { X402Service, ServiceCategory } from '@arc-agent/sdk';
 
 // Use the same API proxy as ServiceList for consistency
@@ -21,29 +21,89 @@ function mapCategory(cat: string | undefined): ServiceCategory {
   return 'api';
 }
 
+// Determine if service is an "action" type that requires ML decision-making
+// Must match the logic in ServiceList.tsx
+function getServiceType(url: string, description: string, category: ServiceCategory): 'action' | 'fetch' {
+  const combined = `${url} ${description}`.toLowerCase();
+
+  // Explicitly DATA services - never action (even if they contain action-like keywords)
+  // These are just fetching data, not making decisions
+  if (
+    combined.includes('pool') ||
+    combined.includes('tvl') ||
+    combined.includes('apr') ||
+    combined.includes('price') && !combined.includes('predict') ||
+    combined.includes('news') ||
+    combined.includes('weather') ||
+    combined.includes('current') && !combined.includes('signal')
+  ) {
+    // Exception: if it explicitly has decision/analysis keywords, treat as action
+    if (
+      combined.includes('analyze') ||
+      combined.includes('analysis') ||
+      combined.includes('score') ||
+      combined.includes('risk') ||
+      combined.includes('decision') ||
+      combined.includes('predict') ||
+      combined.includes('recommend')
+    ) {
+      return 'action';
+    }
+    return 'fetch';
+  }
+
+  // Action services - require ML decision making
+  if (
+    combined.includes('signal') ||
+    combined.includes('indicator') ||
+    combined.includes('trading') ||
+    combined.includes('arbitrage') ||
+    combined.includes('score') ||
+    combined.includes('risk') ||
+    combined.includes('analyze') ||
+    combined.includes('analysis') ||
+    combined.includes('predict') ||
+    combined.includes('forecast') ||
+    combined.includes('recommend') ||
+    combined.includes('decision') ||
+    combined.includes('strategy') ||
+    combined.includes('alert')
+  ) {
+    return 'action';
+  }
+
+  // Everything else is data fetching
+  return 'fetch';
+}
+
 // Map service from API response (matches ServiceList mapping)
 function mapServiceResponse(item: any): X402Service | null {
   try {
     const url = item.url || item.resource || '';
     if (!url) return null;
 
+    const category = mapCategory(item.category);
+    const description = item.description || '';
+    const serviceType = getServiceType(url, description, category);
+
     return {
       url,
       name: item.name || 'Unknown Service',
-      description: item.description || '',
+      description,
       price: item.price || '0',
       priceAtomic: item.priceAtomic || '0',
       asset: item.asset || 'USDC',
-      network: 'Arc Testnet',
+      network: 'base',
       payTo: item.payTo || '0x0000000000000000000000000000000000000000',
-      category: mapCategory(item.category),
+      category,
+      serviceType,
     };
   } catch {
     return null;
   }
 }
 
-function SpawnPageContent() {
+function LaunchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const serviceUrl = searchParams.get('service');
@@ -94,7 +154,7 @@ function SpawnPageContent() {
                 price: '0.01',
                 priceAtomic: '10000',
                 asset: 'USDC',
-                network: 'Arc Testnet',
+                network: 'base',
                 payTo: '0x0000000000000000000000000000000000000000',
                 category: 'api',
               });
@@ -111,7 +171,7 @@ function SpawnPageContent() {
               price: '0.01',
               priceAtomic: '10000',
               asset: 'USDC',
-              network: 'Arc Testnet',
+              network: 'base',
               payTo: '0x0000000000000000000000000000000000000000',
               category: 'api',
             });
@@ -156,20 +216,20 @@ function SpawnPageContent() {
           <Loader2 className="w-8 h-8 animate-spin text-arc-500" />
         </div>
       ) : (
-        <SpawnForm selectedService={selectedService} onSuccess={handleSuccess} />
+        <LaunchForm selectedService={selectedService} onSuccess={handleSuccess} />
       )}
     </div>
   );
 }
 
-export default function SpawnPage() {
+export default function LaunchPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-arc-500" />
       </div>
     }>
-      <SpawnPageContent />
+      <LaunchPageContent />
     </Suspense>
   );
 }

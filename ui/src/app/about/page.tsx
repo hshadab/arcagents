@@ -32,15 +32,15 @@ const features = [
   },
   {
     icon: Shield,
-    title: 'Prove Before You Pay',
-    description: 'ML agents run ONNX models and generate JOLT-Atlas zkML proofs BEFORE payment. Verifiable computation.',
+    title: 'zkML Spending Proofs',
+    description: 'Every agent generates a zkML proof for spending decisions. Cryptographic guardrails ensure your agents prove correct computation before any payment.',
     highlight: 'JOLT-Atlas zkML',
   },
   {
     icon: Lock,
-    title: 'Circle Programmable Wallets',
-    description: 'Each agent has its own custody wallet with enterprise-grade security and compliance built-in.',
-    highlight: 'Enterprise Security',
+    title: 'Shared Treasury Model',
+    description: 'Fund one wallet, all agents draw from it. Simplified management with enterprise-grade security.',
+    highlight: 'Simple & Secure',
   },
   {
     icon: Users,
@@ -50,8 +50,8 @@ const features = [
   },
   {
     icon: Cpu,
-    title: 'Simple or ML-Powered',
-    description: 'Simple agents pay directly. ML agents run ONNX models, prove correct execution, then pay.',
+    title: 'Autonomous Execution',
+    description: 'Agents run autonomously, making spending decisions and purchasing data from x402 services without manual intervention.',
     highlight: 'Flexible Design',
   },
 ];
@@ -60,36 +60,78 @@ const techStack = [
   { name: 'Arc L1', description: 'Circle\'s native USDC blockchain', url: 'https://www.circle.com/arc' },
   { name: 'x402', description: 'HTTP Payment Protocol by Coinbase', url: 'https://github.com/coinbase/x402' },
   { name: 'JOLT-Atlas', description: 'zkML Proof Generation', url: 'https://github.com/ICME-Lab/jolt-atlas' },
-  { name: 'Circle Wallets', description: 'Programmable Wallets', url: 'https://www.circle.com/programmable-wallets' },
+  { name: 'Circle Compliance', description: 'Address Screening Engine', url: 'https://developers.circle.com/w3s/compliance-engine-quickstart' },
   { name: 'ERC-8004', description: 'Agent Identity Standard', url: 'https://eips.ethereum.org/EIPS/eip-8004' },
   { name: 'Bazaar', description: 'Coinbase x402 Discovery', url: 'https://docs.cdp.coinbase.com/x402/docs/bazaar' },
 ];
 
 const contracts = [
-  { name: 'ArcAgentIdentity', description: 'ERC-8004 agent registry and global IDs', address: '0x6028...2678' },
-  { name: 'ArcAgentReputation', description: 'On-chain reputation tracking', address: '0x106e...72a7' },
-  { name: 'ArcProofAttestation', description: 'zkML proof submission and validation', address: '0xBE9a...7952' },
-  { name: 'ArcTreasury', description: 'USDC treasury with spending limits', address: '0x75E0...6d0B' },
-  { name: 'ArcComplianceOracle', description: 'Circle Compliance Engine bridge', address: '0xdB4E...36d1' },
-  { name: 'ArcAgent', description: 'Main facade contract for agent operations', address: '0x982C...E384' },
+  { name: 'ArcAgentIdentity', description: 'ERC-8004 agent registry and global IDs', address: '0x60287b849721EB7ed3C6BbdB34B46be02E0e2678' },
+  { name: 'ArcAgentReputation', description: 'On-chain reputation tracking', address: '0x106e73c96da621826d6923faA3361004e2db72a7' },
+  { name: 'ArcProofAttestation', description: 'zkML proof submission and validation', address: '0xBE9a5DF7C551324CB872584C6E5bF56799787952' },
+  { name: 'ArcTreasury', description: 'USDC treasury with spending limits', address: '0x75E016aC75678344275fd47d6524433B81e46d0B' },
+  { name: 'ArcComplianceOracle', description: 'Circle Compliance Engine bridge', address: '0xdB4E18Cc9290a234eB128f1321643B6c1B5936d1' },
+  { name: 'ArcAgent', description: 'Main facade contract for agent operations', address: '0x982Cd9663EBce3eB8Ab7eF511a6249621C79E384' },
 ];
+
+const ARC_EXPLORER = 'https://explorer.testnet.arc.network/address';
 
 export default function AboutPage() {
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Hero */}
+      {/* Powered By Banner */}
+      <div className="mb-8 flex flex-wrap items-center justify-center gap-6 py-4">
+        <span className="text-sm text-slate-500 dark:text-slate-400">Powered by</span>
+        <a
+          href="https://www.circle.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-arc-600 dark:hover:text-arc-400 transition-colors"
+        >
+          <span className="font-semibold">Circle</span>
+        </a>
+        <span className="text-slate-300 dark:text-slate-600">•</span>
+        <a
+          href="https://arc.network"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-arc-600 dark:hover:text-arc-400 transition-colors"
+        >
+          <span className="font-semibold">Arc L1</span>
+        </a>
+        <span className="text-slate-300 dark:text-slate-600">•</span>
+        <a
+          href="https://x402.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-arc-600 dark:hover:text-arc-400 transition-colors"
+        >
+          <span className="font-semibold">x402</span>
+        </a>
+        <span className="text-slate-300 dark:text-slate-600">•</span>
+        <a
+          href="https://github.com/ICME-Lab/jolt-atlas"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-arc-600 dark:hover:text-arc-400 transition-colors"
+        >
+          <span className="font-semibold">JOLT-Atlas</span>
+        </a>
+      </div>
+
+      {/* Hero - Reframed */}
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-arc-100 dark:bg-arc-900/30 text-arc-700 dark:text-arc-300 rounded-full text-sm font-medium mb-6">
           <Bot className="w-4 h-4" />
-          Built for Circle Developer Community
+          The First AI Agent Framework Native to Arc
         </div>
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-6">
           Autonomous AI Agents on{' '}
-          <span className="bg-gradient-to-r from-arc-500 to-arc-600 bg-clip-text text-transparent">Arc</span>
+          <span className="bg-gradient-to-r from-arc-500 to-arc-600 bg-clip-text text-transparent">Circle's Blockchain</span>
         </h1>
         <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto mb-8">
-          Arc Agents is a framework for deploying AI agents that can autonomously consume paid APIs,
-          make USDC payments, and prove their decisions using zero-knowledge machine learning.
+          Arc Agents is the reference implementation for AI agent commerce on Arc L1.
+          Deploy agents that consume paid APIs, make USDC payments, and prove their decisions with zero-knowledge ML.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
@@ -115,6 +157,24 @@ export default function AboutPage() {
           <div className="flex items-start gap-4">
             <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
             <div>
+              <h3 className="font-semibold mb-1">On-Chain Agent Identity</h3>
+              <p className="text-slate-300 text-sm">
+                Each agent gets an ERC-8004 identity on Arc L1. Global IDs, on-chain reputation, and verifiable history - not just a wallet, but a first-class blockchain citizen.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4">
+            <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="font-semibold mb-1">Permanent Proof Attestation</h3>
+              <p className="text-slate-300 text-sm">
+                Every zkML proof is submitted to ArcProofAttestation contract. Immutable on-chain record that your agent computed its decision correctly - fully auditable forever.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4">
+            <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
+            <div>
               <h3 className="font-semibold mb-1">No API Keys to Manage</h3>
               <p className="text-slate-300 text-sm">
                 x402 enables pay-per-request. Agents can inspect service metadata before paying - no subscriptions needed.
@@ -124,18 +184,18 @@ export default function AboutPage() {
           <div className="flex items-start gap-4">
             <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
             <div>
-              <h3 className="font-semibold mb-1">Prove Before You Pay</h3>
+              <h3 className="font-semibold mb-1">zkML Spending Accountability</h3>
               <p className="text-slate-300 text-sm">
-                ML agents run ONNX models and generate JOLT-Atlas zkML proofs BEFORE payment. Verifiable ML computation.
+                Every agent generates a zkML proof for spending decisions BEFORE payment. Cryptographic proof your agent computed correctly via JOLT-Atlas.
               </p>
             </div>
           </div>
           <div className="flex items-start gap-4">
             <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
             <div>
-              <h3 className="font-semibold mb-1">Enterprise-Grade Security</h3>
+              <h3 className="font-semibold mb-1">Shared Treasury</h3>
               <p className="text-slate-300 text-sm">
-                Circle Programmable Wallets provide institutional custody, compliance, and audit trails for every agent.
+                Fund one wallet, all agents draw from it. No per-agent setup - just fund your treasury and launch agents.
               </p>
             </div>
           </div>
@@ -214,35 +274,50 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Contracts */}
+        {/* Contracts with enhanced Arc Explorer integration */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <Code className="w-5 h-5 text-arc-500" />
-            Smart Contracts (Arc Testnet)
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Code className="w-5 h-5 text-arc-500" />
+              Smart Contracts on Arc Testnet
+            </h3>
+            <a
+              href="https://explorer.testnet.arc.network"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-arc-600 dark:text-arc-400 hover:text-arc-700 dark:hover:text-arc-300 flex items-center gap-1"
+            >
+              Open Arc Explorer
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
           <div className="space-y-3">
             {contracts.map((contract) => (
-              <div
+              <a
                 key={contract.name}
-                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                href={`${ARC_EXPLORER}/${contract.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
               >
                 <div>
-                  <div className="font-mono text-sm text-slate-900 dark:text-white">
+                  <div className="font-mono text-sm text-slate-900 dark:text-white flex items-center gap-1">
                     {contract.name}
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-arc-500" />
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
                     {contract.description}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <code className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                    {contract.address}
+                  <code className="text-xs font-mono text-slate-500 dark:text-slate-400 hidden sm:block">
+                    {contract.address.slice(0, 6)}...{contract.address.slice(-4)}
                   </code>
                   <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
                     Live
                   </span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
         </div>
@@ -251,33 +326,84 @@ export default function AboutPage() {
       {/* How It Works Diagram */}
       <div className="bg-gradient-to-br from-arc-50 to-blue-50 dark:from-arc-900/20 dark:to-blue-900/20 rounded-2xl p-8 mb-16 border border-arc-200 dark:border-arc-800">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 text-center">
-          ML Agent Lifecycle: Prove Before You Pay
+          Agent Lifecycle: zkML Spending Proofs
         </h2>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {[
-            { label: 'Probe', icon: Globe, desc: 'Inspect Service (free)' },
-            { label: 'Model', icon: Cpu, desc: 'Run ONNX Locally' },
-            { label: 'Prove', icon: Shield, desc: 'JOLT-Atlas zkML' },
-            { label: 'Pay', icon: DollarSign, desc: 'x402 Payment' },
-            { label: 'Attest', icon: CheckCircle, desc: 'On-Chain Record' },
-          ].map((step, index, arr) => (
-            <div key={step.label} className="flex items-center gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-800 border-2 border-arc-500 flex items-center justify-center mb-2">
-                  <step.icon className="w-6 h-6 text-arc-600" />
+
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3 text-center">
+            Every Agent: Spending Decision + zkML Proof → Pay → Get Data
+          </h3>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+            {[
+              { label: 'Probe', icon: Globe, desc: 'Get price & metadata' },
+              { label: 'Spending Model', icon: DollarSign, desc: 'Evaluate budget, reputation' },
+              { label: 'zkML Proof', icon: Shield, desc: 'Prove spending decision' },
+              { label: 'Pay', icon: DollarSign, desc: 'x402 USDC payment' },
+              { label: 'Get Data', icon: Globe, desc: 'Service responds' },
+            ].map((step, index, arr) => (
+              <div key={step.label} className="flex items-center gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-12 h-12 rounded-full bg-white dark:bg-slate-800 border-2 ${step.label === 'zkML Proof' ? 'border-arc-500' : 'border-green-500'} flex items-center justify-center mb-2`}>
+                    <step.icon className={`w-5 h-5 ${step.label === 'zkML Proof' ? 'text-arc-600' : 'text-green-600'}`} />
+                  </div>
+                  <div className="font-semibold text-slate-900 dark:text-white text-xs">{step.label}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 text-center max-w-20">{step.desc}</div>
                 </div>
-                <div className="font-semibold text-slate-900 dark:text-white text-sm">{step.label}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">{step.desc}</div>
+                {index < arr.length - 1 && (
+                  <ArrowRight className="w-5 h-5 text-green-400 hidden md:block" />
+                )}
               </div>
-              {index < arr.length - 1 && (
-                <ArrowRight className="w-6 h-6 text-arc-400 hidden md:block" />
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-4">
-          Simple agents skip the Model and Prove steps - they just Probe → Pay → Execute
+
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+          Cryptographic proof of spending decision generated BEFORE every x402 payment
         </p>
+      </div>
+
+      {/* Circle Developer Callout */}
+      <div className="mb-16 p-6 bg-gradient-to-r from-blue-50 to-arc-50 dark:from-blue-900/20 dark:to-arc-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+              Build with Circle
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              Arc Agents leverages Circle's developer platform for USDC payments, compliance screening, and programmable wallets.
+              Explore the full suite of Circle APIs to extend your agent capabilities.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="https://developers.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-arc-600 dark:text-arc-400 hover:text-arc-700 dark:hover:text-arc-300"
+              >
+                Circle Developer Portal
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <a
+                href="https://developers.circle.com/w3s/compliance-engine-quickstart"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-arc-600 dark:text-arc-400 hover:text-arc-700 dark:hover:text-arc-300"
+              >
+                Compliance Engine Docs
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <a
+                href="https://developers.circle.com/w3s/programmable-wallets-quickstart"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-arc-600 dark:text-arc-400 hover:text-arc-700 dark:hover:text-arc-300"
+              >
+                Programmable Wallets
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* CTA */}

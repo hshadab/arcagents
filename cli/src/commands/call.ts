@@ -108,7 +108,8 @@ callCommand
 
       if (paymentResponse) {
         try {
-          const payment = JSON.parse(atob(paymentResponse));
+          // Use Buffer for Node.js compatibility (replaces atob)
+          const payment = JSON.parse(Buffer.from(paymentResponse, 'base64').toString('utf-8'));
           console.log(chalk.dim(`  Paid: $${(parseInt(payment.amount) / 1_000_000).toFixed(6)} USDC`));
           if (payment.txHash) {
             console.log(chalk.dim(`  Tx: ${payment.txHash}`));

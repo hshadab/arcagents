@@ -3,9 +3,11 @@ import {
   type Hash,
   type PublicClient,
   type WalletClient,
+  type Log,
   encodeFunctionData,
   parseUnits,
   formatUnits,
+  decodeEventLog,
 } from 'viem';
 import {
   type Agent,
@@ -42,6 +44,17 @@ const ARC_AGENT_ABI = [
     outputs: [
       { name: 'eligible', type: 'bool' },
       { name: 'reason', type: 'string' },
+    ],
+  },
+  // Events
+  {
+    name: 'AgentCreated',
+    type: 'event',
+    inputs: [
+      { name: 'agentId', type: 'uint256', indexed: true },
+      { name: 'owner', type: 'address', indexed: true },
+      { name: 'walletAddress', type: 'address', indexed: false },
+      { name: 'modelHash', type: 'bytes32', indexed: false },
     ],
   },
 ] as const;
@@ -138,6 +151,9 @@ export class ArcAgentClient {
     if (!account) {
       throw new Error('Wallet has no account');
     }
+
+    // Validate configuration
+    this.validateAgentConfig(config);
 
     const walletAddress = config.walletAddress || account.address;
     const modelHash = config.modelHash || ('0x' + '0'.repeat(64)) as Hash;
@@ -328,9 +344,53 @@ export class ArcAgentClient {
     });
   }
 
+  /**
+   * Parse AgentCreated event from transaction receipt to get agent ID
+   */
   private parseAgentIdFromReceipt(receipt: any): string {
-    // Simplified - in practice would parse AgentCreated event logs
-    // For now, return a placeholder
-    return '1';
+    // Find the AgentCreated event in the logs
+    for (const log of receipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: ARC_AGENT_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+
+        if (decoded.eventName === 'AgentCreated') {
+          const agentId = (decoded.args as any).agentId;
+          return agentId.toString();
+        }
+      } catch {
+        // Not an AgentCreated event, continue
+        continue;
+      }
+    }
+
+    throw new Error(
+      'AgentCreated event not found in transaction receipt. ' +
+      'Transaction may have failed or contract ABI mismatch.'
+    );
+  }
+
+  /**
+   * Validate agent configuration before creation
+   */
+  private validateAgentConfig(config: AgentConfig): void {
+    if (config.name && config.name.length > 64) {
+      throw new Error('Agent name must be 64 characters or less');
+    }
+    if (config.name && !/^[\w\s-]+$/.test(config.name)) {
+      throw new Error('Agent name can only contain letters, numbers, spaces, underscores, and hyphens');
+    }
+    if (config.initialDeposit) {
+      const deposit = parseFloat(config.initialDeposit);
+      if (isNaN(deposit) || deposit < 0) {
+        throw new Error('Initial deposit must be a non-negative number');
+      }
+    }
+    if (config.walletAddress && !/^0x[a-fA-F0-9]{40}$/.test(config.walletAddress)) {
+      throw new Error('Invalid wallet address format');
+    }
   }
 }

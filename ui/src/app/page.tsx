@@ -9,15 +9,15 @@ import type { X402Service } from '@arc-agent/sdk';
 export default function Home() {
   const router = useRouter();
 
-  const handleSpawn = (service: X402Service) => {
-    // Navigate to spawn page with service URL as query param
-    router.push(`/spawn?service=${encodeURIComponent(service.url)}`);
+  const handleLaunch = (service: X402Service) => {
+    // Navigate to launch page with service URL as query param
+    router.push(`/launch?service=${encodeURIComponent(service.url)}`);
   };
 
   return (
     <div>
       {/* Hero */}
-      <div className="text-center mb-12">
+      <div className="text-center py-8 mb-12">
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
           Launch{' '}
           <span className="bg-gradient-to-r from-arc-500 to-arc-600 bg-clip-text text-transparent">Arc Agents</span>
@@ -38,11 +38,11 @@ export default function Home() {
         >
           <h3 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
             <Brain className="w-5 h-5 text-purple-400 flex-shrink-0" />
-            Trustless Automation
+            Trustless Agents
             <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-500 transition-colors" />
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Jolt Atlas zkML proves your agents execute business logic correctly.
+            Agents generate zkML proofs before spending. Cryptographic guardrails for x402 transactions.
           </p>
         </a>
 
@@ -82,7 +82,7 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
           x402 Services
         </h2>
-        <ServiceList onSpawn={handleSpawn} />
+        <ServiceList onLaunch={handleLaunch} />
       </div>
     </div>
   );

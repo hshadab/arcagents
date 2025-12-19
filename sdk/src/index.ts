@@ -72,8 +72,12 @@ export type {
 export {
   ARC_TESTNET_CONFIG as ARC_TESTNET,
   ARC_MAINNET_CONFIG as ARC_MAINNET,
+  USDC_ADDRESSES,
   createNetworkConfig,
   validateNetworkConfig,
+  requireValidNetworkConfig,
+  getUsdcAddressForNetwork,
+  isZeroAddress,
 } from './config';
 
 // Decision Models exports

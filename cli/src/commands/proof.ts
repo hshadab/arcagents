@@ -48,7 +48,7 @@ proofCommand
       const inputs = JSON.parse(inputsJson);
 
       // Validate tag
-      const validTags: ProofTag[] = ['authorization', 'compliance', 'collision_severity'];
+      const validTags: ProofTag[] = ['authorization', 'compliance', 'collision_severity', 'decision'];
       if (!validTags.includes(options.tag)) {
         spinner.fail(`Invalid tag: ${options.tag}. Must be one of: ${validTags.join(', ')}`);
         process.exit(1);

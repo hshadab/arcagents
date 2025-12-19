@@ -58,7 +58,7 @@ function mapBazaarItem(item: BazaarItem): UnifiedService | null {
       price,
       priceAtomic,
       asset: 'USDC', // Bazaar uses USDC contract addresses
-      network: 'Arc Testnet',
+      network: 'base',
       payTo: accept.payTo,
       source: 'bazaar',
       category: inferCategory(item.resource, item.metadata),

@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Wallet, ExternalLink, Check, Copy } from 'lucide-react';
+import { Wallet, ExternalLink, Check, Copy, Vault } from 'lucide-react';
+import { TreasurySetup } from './TreasurySetup';
+import { getTreasury } from '@/lib/treasury';
+import { getBalance } from '@/lib/multiChainPayment';
 
 // Simple wallet context using localStorage
 export function useWalletAddress() {
@@ -31,6 +34,30 @@ export function Header() {
   const [inputAddress, setInputAddress] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showTreasury, setShowTreasury] = useState(false);
+  const [hasTreasury, setHasTreasury] = useState(false);
+  const [treasuryBalance, setTreasuryBalance] = useState<string | null>(null);
+
+  const fetchTreasuryBalance = useCallback(async () => {
+    const treasury = getTreasury();
+    if (treasury) {
+      setHasTreasury(true);
+      try {
+        const result = await getBalance({ address: treasury.address, privateKey: treasury.privateKey }, 'base');
+        setTreasuryBalance(result.formatted);
+      } catch (error) {
+        console.error('Failed to fetch treasury balance:', error);
+        setTreasuryBalance(null);
+      }
+    } else {
+      setHasTreasury(false);
+      setTreasuryBalance(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTreasuryBalance();
+  }, [fetchTreasuryBalance, showTreasury]);
 
   const handleSave = () => {
     if (inputAddress && inputAddress.startsWith('0x') && inputAddress.length === 42) {
@@ -147,6 +174,22 @@ export function Header() {
               Enter Wallet
             </button>
           )}
+          <button
+            onClick={() => setShowTreasury(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              hasTreasury
+                ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30'
+                : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30'
+            }`}
+            title={hasTreasury ? 'Manage treasury' : 'Set up treasury for agent payments'}
+          >
+            <Vault className="w-4 h-4" />
+            {hasTreasury && treasuryBalance !== null ? (
+              <span>${parseFloat(treasuryBalance).toFixed(2)}</span>
+            ) : (
+              <span>Treasury</span>
+            )}
+          </button>
           <a
             href="https://faucet.circle.com/"
             target="_blank"
@@ -159,6 +202,9 @@ export function Header() {
           </a>
         </div>
       </div>
+
+      {/* Treasury Setup Modal */}
+      <TreasurySetup isOpen={showTreasury} onClose={() => setShowTreasury(false)} />
     </header>
   );
 }

@@ -526,6 +526,7 @@ export class ZkmlVerifier {
       [this.tagToBytes32('authorization')]: 'authorization',
       [this.tagToBytes32('compliance')]: 'compliance',
       [this.tagToBytes32('collision_severity')]: 'collision_severity',
+      [this.tagToBytes32('decision')]: 'decision',
     };
     return tagMap[bytes32] ?? 'authorization';
   }

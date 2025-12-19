@@ -5,7 +5,7 @@ module.exports = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'media', // Use system preference for dark mode
+  darkMode: 'selector', // Use selector-based dark mode
   theme: {
     extend: {
       colors: {

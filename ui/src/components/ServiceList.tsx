@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Filter, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Filter, Loader2, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ServiceCard } from './ServiceCard';
 import type { X402Service, ServiceCategory } from '@arc-agent/sdk';
 
+const ITEMS_PER_PAGE = 20;
+
 interface ServiceListProps {
-  onSpawn?: (service: X402Service) => void;
+  onLaunch?: (service: X402Service) => void;
 }
 
 const categories: { value: ServiceCategory | 'all'; label: string }[] = [
@@ -21,6 +23,62 @@ const categories: { value: ServiceCategory | 'all'; label: string }[] = [
 
 // Use local API proxy to avoid CORS issues
 const BAZAAR_API = '/api/bazaar';
+
+// Determine if service is an "action" type that requires ML decision-making
+// Action services: trading signals, risk scoring, token analysis - things that need ML inference
+// Data services: news, prices, pool TVL/APR, weather - simple data retrieval
+function getServiceType(url: string, description: string, category: ServiceCategory): 'action' | 'fetch' {
+  const combined = `${url} ${description}`.toLowerCase();
+
+  // Explicitly DATA services - never action (even if they contain action-like keywords)
+  // These are just fetching data, not making decisions
+  if (
+    combined.includes('pool') ||
+    combined.includes('tvl') ||
+    combined.includes('apr') ||
+    combined.includes('price') && !combined.includes('predict') ||
+    combined.includes('news') ||
+    combined.includes('weather') ||
+    combined.includes('current') && !combined.includes('signal')
+  ) {
+    // Exception: if it explicitly has decision/analysis keywords, treat as action
+    if (
+      combined.includes('analyze') ||
+      combined.includes('analysis') ||
+      combined.includes('score') ||
+      combined.includes('risk') ||
+      combined.includes('decision') ||
+      combined.includes('predict') ||
+      combined.includes('recommend')
+    ) {
+      return 'action';
+    }
+    return 'fetch';
+  }
+
+  // Action services - require ML decision making
+  if (
+    combined.includes('signal') ||
+    combined.includes('indicator') ||
+    combined.includes('trading') ||
+    combined.includes('arbitrage') ||
+    combined.includes('score') ||
+    combined.includes('risk') ||
+    combined.includes('analyze') ||
+    combined.includes('analysis') ||
+    combined.includes('predict') ||
+    combined.includes('forecast') ||
+    combined.includes('recommend') ||
+    combined.includes('decision') ||
+    combined.includes('strategy') ||
+    combined.includes('alert')
+  ) {
+    return 'action';
+  }
+
+  // Everything else is data fetching
+  return 'fetch';
+}
 
 // Determine if zkML is recommended and which proof type
 function getZkmlRecommendation(url: string, description: string, category: ServiceCategory): {
@@ -117,7 +175,8 @@ function mapBazaarResource(item: any): X402Service | null {
 
     const category = mapCategory(categoryHint);
 
-    // Check if zkML is recommended for this service
+    // Determine service type (action vs fetch) and zkML recommendation
+    const serviceType = getServiceType(url, description, category);
     const zkmlRec = getZkmlRecommendation(url, description, category);
 
     return {
@@ -127,9 +186,10 @@ function mapBazaarResource(item: any): X402Service | null {
       price: priceUsd,
       priceAtomic: atomicAmount,
       asset: 'USDC',
-      network: 'Arc Testnet',
+      network: 'base',
       payTo: accept.payTo || '0x0000000000000000000000000000000000000000',
       category,
+      serviceType,
       zkmlRecommended: zkmlRec.recommended,
       zkmlProofType: zkmlRec.proofType,
       metadata: item.metadata,
@@ -176,6 +236,7 @@ function mapUnifiedService(item: any): X402Service | null {
     if (!url) return null;
 
     const category = mapCategory(item.category || item.url);
+    const serviceType = getServiceType(url, item.description || '', category);
     const zkmlRec = getZkmlRecommendation(url, item.description || '', category);
 
     return {
@@ -185,9 +246,10 @@ function mapUnifiedService(item: any): X402Service | null {
       price: item.price || '0',
       priceAtomic: item.priceAtomic || '0',
       asset: item.asset || 'USDC',
-      network: 'Arc Testnet',
+      network: 'base',
       payTo: item.payTo || '0x0000000000000000000000000000000000000000',
       category,
+      serviceType,
       zkmlRecommended: zkmlRec.recommended,
       zkmlProofType: zkmlRec.proofType,
       metadata: item.metadata,
@@ -198,12 +260,13 @@ function mapUnifiedService(item: any): X402Service | null {
   }
 }
 
-export function ServiceList({ onSpawn }: ServiceListProps) {
+export function ServiceList({ onLaunch }: ServiceListProps) {
   const [services, setServices] = useState<X402Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<ServiceCategory | 'all'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchServices = async () => {
     setLoading(true);
@@ -246,7 +309,7 @@ export function ServiceList({ onSpawn }: ServiceListProps) {
           price: '0.001',
           priceAtomic: '1000',
           asset: 'USDC',
-          network: 'Arc Testnet',
+          network: 'base',
           payTo: '0x0000000000000000000000000000000000000000' as `0x${string}`,
           category: 'data',
         },
@@ -257,7 +320,7 @@ export function ServiceList({ onSpawn }: ServiceListProps) {
           price: '0.01',
           priceAtomic: '10000',
           asset: 'USDC',
-          network: 'Arc Testnet',
+          network: 'base',
           payTo: '0x0000000000000000000000000000000000000000' as `0x${string}`,
           category: 'ai',
         },
@@ -271,17 +334,49 @@ export function ServiceList({ onSpawn }: ServiceListProps) {
     fetchServices();
   }, []);
 
-  const filteredServices = services.filter((service) => {
-    const matchesSearch =
-      !search ||
-      service.name.toLowerCase().includes(search.toLowerCase()) ||
-      service.description?.toLowerCase().includes(search.toLowerCase());
+  // Filter services based on search and category
+  // Note: All agents now use zkML for spending decisions, so no agent type filter needed
+  const filteredServices = useMemo(() => {
+    return services.filter((service) => {
+      const matchesSearch =
+        !search ||
+        service.name.toLowerCase().includes(search.toLowerCase()) ||
+        service.description?.toLowerCase().includes(search.toLowerCase());
 
-    const matchesCategory =
-      category === 'all' || service.category === category;
+      const matchesCategory =
+        category === 'all' || service.category === category;
 
-    return matchesSearch && matchesCategory;
-  });
+      return matchesSearch && matchesCategory;
+    });
+  }, [services, search, category]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, category]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredServices.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedServices = filteredServices.slice(startIndex, endIndex);
+
+  // Generate page numbers to show
+  const getPageNumbers = (): (number | 'ellipsis')[] => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <div>
@@ -333,6 +428,7 @@ export function ServiceList({ onSpawn }: ServiceListProps) {
         </div>
       </div>
 
+
       {/* Service Grid */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2">
@@ -347,20 +443,67 @@ export function ServiceList({ onSpawn }: ServiceListProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredServices.map((service) => (
+          {paginatedServices.map((service) => (
             <ServiceCard
               key={service.url}
               service={service}
-              onSpawn={onSpawn}
+              onLaunch={onLaunch}
             />
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          {/* Previous button */}
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Prev
+          </button>
+
+          {/* Page numbers */}
+          <div className="flex items-center gap-1">
+            {getPageNumbers().map((page, idx) => (
+              page === 'ellipsis' ? (
+                <span key={`ellipsis-${idx}`} className="px-2 text-slate-400">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-10 h-10 text-sm font-medium rounded-lg transition-colors ${
+                    currentPage === page
+                      ? 'bg-arc-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+          </div>
+
+          {/* Next button */}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
 
       {/* Service Count */}
       {!loading && services.length > 0 && (
         <p className="mt-4 text-sm text-slate-500 dark:text-slate-400 text-center">
-          Showing {filteredServices.length} of {services.length} x402 services
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredServices.length)} of {filteredServices.length} services
+          {filteredServices.length !== services.length && ` (${services.length} total)`}
         </p>
       )}
     </div>

@@ -1,8 +1,29 @@
 import type { Address, Hash, WalletClient, PublicClient } from 'viem';
 import type { PaymentRequirement, PaymentResult, X402Service } from '../types';
+import { USDC_ADDRESSES } from '../config';
 
 const PAYMENT_REQUIRED_HEADERS = ['payment-required', 'x-payment-required'];
 const PAYMENT_HEADER = 'x-payment';
+
+// ERC20 ABI for USDC transfers
+const ERC20_ABI = [
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const;
 
 interface X402ClientConfig {
   /** Wallet client for signing transactions */
@@ -13,6 +34,8 @@ interface X402ClientConfig {
   treasury?: Address;
   /** Agent ID (for tracking payments) */
   agentId?: string;
+  /** Skip actual payment execution (for testing) */
+  simulatePayments?: boolean;
 }
 
 /**
@@ -26,18 +49,87 @@ export class X402Client {
   private publicClient: PublicClient;
   private treasury?: Address;
   private agentId?: string;
+  private simulatePayments: boolean;
 
   constructor(config: X402ClientConfig) {
     this.wallet = config.wallet;
     this.publicClient = config.publicClient;
     this.treasury = config.treasury;
     this.agentId = config.agentId;
+    this.simulatePayments = config.simulatePayments ?? false;
+  }
+
+  /**
+   * Get USDC address for a network
+   */
+  private getUsdcAddress(network: string): Address | null {
+    return USDC_ADDRESSES[network] ?? null;
+  }
+
+  /**
+   * Execute actual USDC transfer for x402 payment
+   */
+  private async executePayment(requirement: PaymentRequirement): Promise<{
+    txHash: Hash;
+    amount: string;
+  }> {
+    const account = this.wallet.account;
+    if (!account) {
+      throw new Error('Wallet has no account');
+    }
+
+    // Get USDC address for the payment network
+    const usdcAddress = this.getUsdcAddress(requirement.network);
+    if (!usdcAddress) {
+      throw new Error(`USDC not configured for network: ${requirement.network}. Supported: ${Object.keys(USDC_ADDRESSES).join(', ')}`);
+    }
+
+    const amount = BigInt(requirement.maxAmount);
+    const recipient = requirement.payTo as Address;
+
+    // Check balance first
+    const balance = await this.publicClient.readContract({
+      address: usdcAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    }) as bigint;
+
+    if (balance < amount) {
+      const balanceFormatted = (Number(balance) / 1_000_000).toFixed(6);
+      const amountFormatted = (Number(amount) / 1_000_000).toFixed(6);
+      throw new Error(
+        `Insufficient USDC balance. Have: ${balanceFormatted}, Need: ${amountFormatted}`
+      );
+    }
+
+    // Execute transfer
+    const txHash = await this.wallet.writeContract({
+      address: usdcAddress,
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: [recipient, amount],
+      account,
+      chain: { id: await this.publicClient.getChainId() } as any,
+    });
+
+    // Wait for confirmation
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+
+    if (receipt.status !== 'success') {
+      throw new Error(`Payment transaction failed: ${txHash}`);
+    }
+
+    return {
+      txHash,
+      amount: requirement.maxAmount,
+    };
   }
 
   /**
    * Fetch a resource, automatically handling x402 payments
    */
-  async fetch(url: string, init?: RequestInit): Promise<Response> {
+  async fetch(url: string, init?: RequestInit): Promise<Response & { paymentResult?: PaymentResult }> {
     // First request - check if payment required
     const initialResponse = await fetch(url, {
       ...init,
@@ -57,18 +149,24 @@ export class X402Client {
       throw new Error('Received 402 but no payment requirements found');
     }
 
-    // Execute payment and get signature
-    const paymentPayload = await this.createPaymentPayload(requirement);
+    // Execute actual payment and create signed payload
+    const { payload, txHash, amount } = await this.createPaymentPayload(requirement);
 
-    // Retry with payment
-    return fetch(url, {
+    // Retry with payment proof
+    const response = await fetch(url, {
       ...init,
       headers: {
         ...init?.headers,
         'Accept': 'application/json',
-        [PAYMENT_HEADER]: paymentPayload,
+        [PAYMENT_HEADER]: payload,
       },
     });
+
+    // Attach payment result to response for caller access
+    const paymentResult = this.extractPaymentResult(response, txHash, amount);
+    (response as any).paymentResult = paymentResult;
+
+    return response;
   }
 
   /**
@@ -92,7 +190,8 @@ export class X402Client {
     }
 
     const data = await response.json() as T;
-    const payment = this.extractPaymentResult(response);
+    // Use attached payment result from fetch, or extract from headers
+    const payment = (response as any).paymentResult || this.extractPaymentResult(response);
 
     return { data, payment };
   }
@@ -118,7 +217,8 @@ export class X402Client {
       const header = response.headers.get(headerName);
       if (header) {
         try {
-          const decoded = JSON.parse(atob(header));
+          // Use Buffer for Node.js compatibility (replaces atob)
+          const decoded = JSON.parse(Buffer.from(header, 'base64').toString('utf-8'));
           return {
             scheme: decoded.scheme || 'exact',
             network: decoded.network,
@@ -136,13 +236,27 @@ export class X402Client {
     return null;
   }
 
-  private async createPaymentPayload(requirement: PaymentRequirement): Promise<string> {
+  private async createPaymentPayload(requirement: PaymentRequirement): Promise<{
+    payload: string;
+    txHash?: Hash;
+    amount?: string;
+  }> {
     const account = this.wallet.account;
     if (!account) {
       throw new Error('Wallet has no account');
     }
 
-    // Create EIP-712 typed data for payment authorization
+    let txHash: Hash | undefined;
+    let amountPaid: string | undefined;
+
+    // Execute actual payment unless in simulation mode
+    if (!this.simulatePayments) {
+      const paymentResult = await this.executePayment(requirement);
+      txHash = paymentResult.txHash;
+      amountPaid = paymentResult.amount;
+    }
+
+    // Create EIP-712 typed data for payment proof
     const domain = {
       name: 'x402',
       version: '1',
@@ -192,21 +306,30 @@ export class X402Client {
       signature,
       payer: account.address,
       agentId: this.agentId,
+      txHash, // Include actual transaction hash
     };
 
-    return btoa(JSON.stringify(payload));
+    // Use Buffer for Node.js compatibility (replaces btoa)
+    return {
+      payload: Buffer.from(JSON.stringify(payload)).toString('base64'),
+      txHash,
+      amount: amountPaid,
+    };
   }
 
-  private extractPaymentResult(response: Response): PaymentResult {
+  private extractPaymentResult(response: Response, localTxHash?: Hash, localAmount?: string): PaymentResult {
     const paymentResponse = response.headers.get('payment-response')
       || response.headers.get('x-payment-response');
 
     if (paymentResponse) {
       try {
-        const decoded = JSON.parse(atob(paymentResponse));
+        // Use Buffer for Node.js compatibility (replaces atob)
+        const decoded = JSON.parse(Buffer.from(paymentResponse, 'base64').toString('utf-8'));
         return {
           success: true,
           transactionHash: decoded.txHash as Hash,
+          amount: decoded.amount,
+          network: decoded.network,
           settlement: {
             network: decoded.network,
             txHash: decoded.txHash,
@@ -214,12 +337,15 @@ export class X402Client {
           },
         };
       } catch {
-        // Fall through to default
+        // Fall through to local data
       }
     }
 
+    // Return local payment data if service didn't provide response
     return {
       success: true,
+      transactionHash: localTxHash,
+      amount: localAmount,
     };
   }
 }

@@ -31,7 +31,7 @@ const steps = [
       'Click "Enter Wallet" in the top right header',
       'Paste any Ethereum address (MetaMask, Coinbase Wallet, Rainbow, etc.)',
       'Your address is saved locally for convenience',
-      'Use Circle Faucet to get testnet USDC on Arc Testnet',
+      'Use Circle Faucet for testnet USDC (Arc Testnet + Base Sepolia)',
     ],
     color: 'from-blue-400 to-blue-600',
   },
@@ -41,55 +41,57 @@ const steps = [
     description: 'Explore machine-payable APIs from the x402 Bazaar. You can inspect services before paying.',
     details: [
       'x402 returns service metadata (price, schema) before payment',
-      'Some services need ML decision-making, others are simple data',
-      'Agents determine service type before deciding how to proceed',
+      'Services include data feeds, analytics, research APIs, and more',
+      'All services work with zkML spending proofs for accountability',
     ],
     color: 'from-purple-400 to-purple-600',
   },
   {
     icon: Bot,
     title: '3. Configure Your Agent',
-    description: 'Decision models auto-assigned for action services. Compliance built-in for all agents.',
+    description: 'Agents use a spending model to decide purchases with cryptographic accountability.',
     details: [
-      'Simple agents: call x402 services directly (data fetching)',
-      'Action services: decision model auto-assigned, zkML proofs required',
+      'All agents generate zkML spending proofs before every payment',
+      'Spending policy: daily limits, max purchase size, minimum budget buffer',
       'Dual-sided compliance screening on every agent',
-      'Your agent gets its own Circle Programmable Wallet',
+      'Cryptographic proof ensures spending decisions are verified',
     ],
     color: 'from-arc-400 to-arc-600',
   },
   {
     icon: DollarSign,
-    title: '4. Fund Your Agent',
-    description: 'Send USDC to your agent\'s wallet using Circle Faucet (testnet) or direct transfer.',
+    title: '4. Fund Your Treasury',
+    description: 'All agents share a single treasury wallet. Fund it once on two networks.',
     details: [
-      'Copy your agent\'s wallet address after creation',
-      'Go to faucet.circle.com and select "Arc Testnet"',
-      'Paste the agent wallet address and request USDC',
-      'Monitor balance in the "My Agents" dashboard',
+      'Click "Treasury" button in the header to set up your shared wallet',
+      'Arc Testnet: faucet.circle.com → "Arc Testnet" (for proofs & contracts)',
+      'Base: Send USDC on Base, or faucet → "Base Sepolia" (for x402 payments)',
+      'Same address works on both networks - all your agents draw from this balance',
     ],
     color: 'from-green-400 to-green-600',
   },
   {
     icon: Play,
-    title: '5. Probe → Decide → Prove → Pay',
-    description: 'Agents inspect x402 services first. ML agents prove their decision BEFORE payment.',
+    title: '5. zkML Spending Proofs',
+    description: 'Every agent generates a zkML proof for spending decisions before any payment.',
     details: [
-      'Probe x402 service to get metadata (free, no payment)',
-      'If ML decision needed: run ONNX model, generate zkML proof',
-      'zkML proves the model computed correctly',
-      'Only then pay and execute the service',
+      'Probe x402 service to get price (free, no payment)',
+      'Spending model evaluates: price, budget, daily limit, service reputation',
+      'zkML proof generated for spending decision',
+      'If APPROVED: compliance check → pay → get data from service',
+      'Full cryptographic accountability for every transaction',
     ],
     color: 'from-amber-400 to-amber-600',
   },
   {
     icon: CheckCircle,
     title: '6. On-Chain Attestation',
-    description: 'All ML agent decisions have proofs attested on-chain. Full accountability.',
+    description: 'Every x402 payment has cryptographic proof. Full accountability for all agents.',
     details: [
-      'Proofs automatically submitted to ArcProofAttestation contract',
+      'Spending proof submitted for every transaction',
       'Cryptographic guarantee agent computed decision correctly',
       'Anyone can verify on-chain - fully auditable',
+      'Complete audit trail of all agent spending',
     ],
     color: 'from-teal-400 to-teal-600',
   },
@@ -197,42 +199,28 @@ export default function HowToUsePage() {
         </div>
       </div>
 
-      {/* Agent Types Section */}
+      {/* Agent Architecture Section */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 mb-8">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
-          Understanding Agent Types
+          zkML Agent Architecture
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2 mb-3">
-              <Search className="w-5 h-5 text-blue-600" />
-              <h3 className="font-semibold text-slate-900 dark:text-white">Simple Agents</h3>
-              <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">No ML Model</span>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Agents that call x402 services directly without ML decision-making. Good for data aggregation, scheduled tasks, or simple automation.
-            </p>
-            <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-1">
-              <li>• Probe service → Pay → Get response</li>
-              <li>• No ONNX model, no zkML proofs</li>
-              <li>• Fast and simple for basic tasks</li>
-            </ul>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+          <strong>Every Arc Agent generates a zkML spending proof</strong> before making any x402 payment, providing cryptographic accountability for all transactions.
+        </p>
+        <div className="p-4 bg-arc-50 dark:bg-arc-900/20 rounded-lg border border-arc-200 dark:border-arc-800">
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-5 h-5 text-arc-600" />
+            <h3 className="font-semibold text-slate-900 dark:text-white">Universal Spending Proofs</h3>
+            <span className="text-xs px-2 py-0.5 bg-arc-100 dark:bg-arc-900 text-arc-700 dark:text-arc-300 rounded">All Agents</span>
           </div>
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-5 h-5 text-amber-600" />
-              <h3 className="font-semibold text-slate-900 dark:text-white">ML Decision Agents</h3>
-              <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded">Uses zkML</span>
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-              Agents that run ONNX models locally and generate zkML proofs before paying for services. Provides verifiable, accountable decision-making.
-            </p>
-            <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-1">
-              <li>• Probe service → Run ONNX → Prove → Pay</li>
-              <li>• zkML proves the model computed correctly</li>
-              <li>• Proof submitted on-chain for accountability</li>
-            </ul>
-          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+            Every agent uses the same spending model to evaluate purchases. The model runs locally, and a zkML proof is generated to verify the computation.
+          </p>
+          <ul className="text-sm text-slate-500 dark:text-slate-400 space-y-1">
+            <li>• <strong>Inputs:</strong> price, budget, daily limit, service reputation</li>
+            <li>• <strong>Flow:</strong> Probe → Spending Model → zkML Proof → Compliance → Pay → Get data</li>
+            <li>• <strong>Output:</strong> Cryptographic proof the agent computed the spending decision correctly</li>
+          </ul>
         </div>
       </div>
 
@@ -244,75 +232,75 @@ export default function HowToUsePage() {
           </div>
           <div>
             <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-              How zkML Proofs Work
+              zkML Spending Proofs
               <span className="inline-flex items-center px-2 py-0.5 bg-arc-100 dark:bg-arc-800 text-arc-700 dark:text-arc-300 text-xs rounded-full font-medium">
-                Required for Actions
+                JOLT-Atlas
               </span>
             </h3>
             <p className="text-slate-600 dark:text-slate-400">
-              zkML (zero-knowledge machine learning) proves that an ONNX model was executed correctly.
-              Action services automatically require zkML proofs - cryptographic proof your agent computed its decision correctly.
+              <strong>Every agent generates a zkML proof</strong> for their spending decision before any payment.
+              This provides cryptographic accountability for every x402 transaction.
             </p>
           </div>
         </div>
 
         {/* Workflow diagram */}
         <div className="bg-white/50 dark:bg-slate-900/50 rounded-lg p-4 mb-6">
-          <h4 className="font-medium text-slate-900 dark:text-white mb-4 text-center">ML Agent Workflow: Prove Before You Pay</h4>
+          <h4 className="font-medium text-slate-900 dark:text-white mb-4 text-center">Agent Execution Flow</h4>
           <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-sm">
             <div className="text-center p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <div className="font-semibold text-blue-700 dark:text-blue-300">1. Probe Service</div>
-              <div className="text-xs text-slate-500">Get metadata (free)</div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
-            <div className="text-center p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <div className="font-semibold text-purple-700 dark:text-purple-300">2. Run ONNX Model</div>
-              <div className="text-xs text-slate-500">Local inference</div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
-            <div className="text-center p-3 bg-arc-100 dark:bg-arc-900/30 rounded-lg">
-              <div className="font-semibold text-arc-700 dark:text-arc-300">3. Generate Proof</div>
-              <div className="text-xs text-slate-500">JOLT-Atlas zkML</div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
-            <div className="text-center p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-              <div className="font-semibold text-amber-700 dark:text-amber-300">4. Pay & Execute</div>
-              <div className="text-xs text-slate-500">x402 payment</div>
+              <div className="font-semibold text-blue-700 dark:text-blue-300">1. Probe</div>
+              <div className="text-xs text-slate-500">Get price (free)</div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
             <div className="text-center p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <div className="font-semibold text-green-700 dark:text-green-300">5. Attest On-Chain</div>
-              <div className="text-xs text-slate-500">Permanent record</div>
+              <div className="font-semibold text-green-700 dark:text-green-300">2. Spending Model</div>
+              <div className="text-xs text-slate-500">Evaluate decision</div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
+            <div className="text-center p-3 bg-arc-100 dark:bg-arc-900/30 rounded-lg border-2 border-arc-400">
+              <div className="font-semibold text-arc-700 dark:text-arc-300">3. zkML Proof</div>
+              <div className="text-xs text-slate-500">JOLT-Atlas</div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
+            <div className="text-center p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <div className="font-semibold text-purple-700 dark:text-purple-300">4. Compliance</div>
+              <div className="text-xs text-slate-500">Dual-sided check</div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 rotate-90 md:rotate-0" />
+            <div className="text-center p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+              <div className="font-semibold text-amber-700 dark:text-amber-300">5. Pay & Get Data</div>
+              <div className="text-xs text-slate-500">x402 payment</div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white/50 dark:bg-slate-900/50 rounded-lg p-4">
-            <h4 className="font-medium text-slate-900 dark:text-white mb-2">What zkML Proves</h4>
+            <h4 className="font-medium text-slate-900 dark:text-white mb-2">Spending Model</h4>
             <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-              <li>• Model hash (which ONNX model ran)</li>
-              <li>• Input hash (what data was used)</li>
-              <li>• Output hash (what result was produced)</li>
-              <li>• Computation was correct</li>
+              <li>• ONNX model: spending-model.onnx</li>
+              <li>• Inputs: price, budget, reputation</li>
+              <li>• Output: shouldBuy, confidence, risk</li>
+              <li>• Runs locally before payment</li>
             </ul>
           </div>
           <div className="bg-white/50 dark:bg-slate-900/50 rounded-lg p-4">
-            <h4 className="font-medium text-slate-900 dark:text-white mb-2">Why It Matters</h4>
+            <h4 className="font-medium text-slate-900 dark:text-white mb-2">zkML Proof Generation</h4>
             <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-              <li>• Verifiable ML computation</li>
-              <li>• Proof generated BEFORE payment</li>
-              <li>• On-chain audit trail</li>
-              <li>• Model weights stay private</li>
+              <li>• JOLT-Atlas proving system</li>
+              <li>• Cryptographic proof of computation</li>
+              <li>• Verifiable on-chain</li>
+              <li>• Generated before every payment</li>
             </ul>
           </div>
           <div className="bg-white/50 dark:bg-slate-900/50 rounded-lg p-4">
-            <h4 className="font-medium text-slate-900 dark:text-white mb-2">JOLT-Atlas</h4>
+            <h4 className="font-medium text-slate-900 dark:text-white mb-2">Why Spending Proofs?</h4>
             <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-              <li>• zkML proof generation engine</li>
-              <li>• Supports ONNX model format</li>
-              <li>• Proofs are ~2KB in size</li>
-              <li>• Generation takes 3-6 seconds</li>
+              <li>• Every payment is accountable</li>
+              <li>• Uses real financial data</li>
+              <li>• On-chain attestation</li>
+              <li>• Full audit trail</li>
             </ul>
           </div>
         </div>
@@ -518,7 +506,7 @@ export default function HowToUsePage() {
             <h4 className="font-medium text-slate-900 dark:text-white mb-2">Activity Dashboard</h4>
             <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
               <li>• View execution logs and history</li>
-              <li>• See zkML proofs for ML agents on-chain</li>
+              <li>• Verify zkML spending proofs on-chain</li>
               <li>• Track USDC spending per agent</li>
               <li>• Monitor success/failure rates</li>
             </ul>

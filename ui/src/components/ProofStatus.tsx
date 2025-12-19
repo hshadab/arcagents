@@ -24,7 +24,7 @@ export interface ProofMetadata {
 
 export interface ProofItem {
   requestHash: string;
-  tag: 'authorization' | 'compliance' | 'collision_severity';
+  tag: 'authorization' | 'compliance' | 'collision_severity' | 'spending' | 'decision';
   response: ValidationResponseType;
   isValidated: boolean;
   timestamp: number;
@@ -42,12 +42,16 @@ const tagLabels: Record<string, string> = {
   authorization: 'Authorization',
   compliance: 'Compliance',
   collision_severity: 'Impact Assessment',
+  spending: 'Spending',
+  decision: 'Decision',
 };
 
 const tagColors: Record<string, string> = {
   authorization: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   compliance: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   collision_severity: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  spending: 'bg-arc-100 text-arc-700 dark:bg-arc-900/30 dark:text-arc-400',
+  decision: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 };
 
 function getStatusIcon(response: ValidationResponseType) {
@@ -200,18 +204,8 @@ export function ProofStatus({ agentId, proofs, validProofCount, onRefresh }: Pro
         </div>
       </div>
 
-      {/* Proof List */}
-      {proofs.length === 0 ? (
-        <div className="p-6 text-center">
-          <Shield className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No proofs yet
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Proofs are generated automatically when the agent makes x402 requests
-          </p>
-        </div>
-      ) : (
+      {/* Proof List - only show if there are proofs */}
+      {proofs.length > 0 && (
         <>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {displayedProofs.map((proof) => (

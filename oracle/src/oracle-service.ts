@@ -5,6 +5,8 @@
  * calls Circle Compliance Engine API, and submits results back on-chain.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   createPublicClient,
   createWalletClient,
@@ -24,6 +26,19 @@ import {
   type ScreeningResponse,
 } from './circle-compliance.js';
 import { createScreeningRateLimiter, type RateLimiter } from './rate-limiter.js';
+
+/**
+ * Checkpoint data for persisting block progress
+ */
+interface CheckpointData {
+  lastProcessedBlock: string;
+  timestamp: number;
+}
+
+/**
+ * Default checkpoint file path
+ */
+const DEFAULT_CHECKPOINT_PATH = './oracle-checkpoint.json';
 
 // ArcComplianceOracle ABI (relevant events and functions)
 const ORACLE_ABI = [
@@ -52,6 +67,10 @@ export interface OracleServiceConfig {
   circleBaseUrl?: string;
   /** Polling interval in ms (default: 5000) */
   pollingInterval?: number;
+  /** Path to checkpoint file for block persistence (default: ./oracle-checkpoint.json) */
+  checkpointPath?: string;
+  /** Max retries for failed operations (default: 3) */
+  maxRetries?: number;
 }
 
 interface ScreeningRequest {
@@ -74,9 +93,15 @@ export class ComplianceOracleService {
   private rateLimiter: RateLimiter;
   private isRunning = false;
   private processedRequests = new Set<string>();
+  private lastProcessedBlock: bigint = 0n;
+  private checkpointPath: string;
+  private maxRetries: number;
+  private isMockMode: boolean;
 
   constructor(config: OracleServiceConfig) {
     this.config = config;
+    this.checkpointPath = config.checkpointPath ?? DEFAULT_CHECKPOINT_PATH;
+    this.maxRetries = config.maxRetries ?? 3;
 
     // Define the Arc chain
     this.chain = defineChain({
@@ -113,6 +138,7 @@ export class ComplianceOracleService {
     });
 
     // Create compliance client (real or mock)
+    this.isMockMode = !config.circleApiKey;
     if (config.circleApiKey) {
       this.complianceClient = new CircleComplianceClient({
         apiKey: config.circleApiKey,
@@ -121,7 +147,8 @@ export class ComplianceOracleService {
       console.log('[Oracle] Using real Circle Compliance Engine');
     } else {
       this.complianceClient = new MockCircleComplianceClient();
-      console.log('[Oracle] Using mock Circle Compliance client (set CIRCLE_API_KEY for real screening)');
+      console.warn('[Oracle] ⚠️  RUNNING IN MOCK MODE - NOT SCREENING AGAINST CIRCLE');
+      console.warn('[Oracle] Set CIRCLE_API_KEY environment variable for real compliance screening');
     }
 
     // Initialize rate limiter (30 requests per minute)
@@ -133,12 +160,86 @@ export class ComplianceOracleService {
   }
 
   /**
+   * Load checkpoint from disk
+   */
+  private async loadCheckpoint(): Promise<void> {
+    try {
+      if (fs.existsSync(this.checkpointPath)) {
+        const data = JSON.parse(fs.readFileSync(this.checkpointPath, 'utf-8')) as CheckpointData;
+        this.lastProcessedBlock = BigInt(data.lastProcessedBlock);
+        console.log(`[Oracle] Loaded checkpoint: block ${this.lastProcessedBlock}`);
+      } else {
+        // Start from current block if no checkpoint
+        this.lastProcessedBlock = await this.publicClient.getBlockNumber();
+        console.log(`[Oracle] No checkpoint found, starting from block ${this.lastProcessedBlock}`);
+      }
+    } catch (error) {
+      console.warn('[Oracle] Error loading checkpoint, starting from latest block:', error);
+      this.lastProcessedBlock = await this.publicClient.getBlockNumber();
+    }
+  }
+
+  /**
+   * Save checkpoint to disk
+   */
+  private saveCheckpoint(): void {
+    try {
+      const data: CheckpointData = {
+        lastProcessedBlock: this.lastProcessedBlock.toString(),
+        timestamp: Date.now(),
+      };
+      fs.writeFileSync(this.checkpointPath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('[Oracle] Error saving checkpoint:', error);
+    }
+  }
+
+  /**
+   * Execute a function with exponential backoff retry
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    description: string,
+    maxRetries: number = this.maxRetries
+  ): Promise<T> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s...
+          console.warn(`[Oracle] ${description} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms:`, lastError.message);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Check if running in mock mode
+   */
+  public isInMockMode(): boolean {
+    return this.isMockMode;
+  }
+
+  /**
    * Start the oracle service
    */
   async start(): Promise<void> {
     console.log('[Oracle] Starting Compliance Oracle Service...');
     console.log(`[Oracle] Contract: ${this.config.oracleContractAddress}`);
     console.log(`[Oracle] Oracle address: ${this.walletClient.account?.address}`);
+    console.log(`[Oracle] Checkpoint file: ${this.checkpointPath}`);
+    console.log(`[Oracle] Mode: ${this.isMockMode ? 'MOCK (not screening against Circle)' : 'PRODUCTION'}`);
+
+    // Load checkpoint for block persistence
+    await this.loadCheckpoint();
 
     // Verify oracle is authorized
     const isAuthorized = await this.isOracleAuthorized();
@@ -164,6 +265,8 @@ export class ComplianceOracleService {
   stop(): void {
     console.log('[Oracle] Stopping service...');
     this.isRunning = false;
+    this.saveCheckpoint();
+    console.log(`[Oracle] Checkpoint saved at block ${this.lastProcessedBlock}`);
   }
 
   /**
@@ -191,19 +294,36 @@ export class ComplianceOracleService {
    * Watch for ScreeningRequested events
    */
   private watchScreeningRequests(): void {
-    console.log('[Oracle] Watching for ScreeningRequested events...');
+    console.log(`[Oracle] Watching for ScreeningRequested events from block ${this.lastProcessedBlock}...`);
 
     // Use polling to watch for events
     const pollForEvents = async () => {
       if (!this.isRunning) return;
 
       try {
-        // Get recent logs
-        const logs = await this.publicClient.getLogs({
-          address: this.config.oracleContractAddress,
-          event: parseAbiItem('event ScreeningRequested(bytes32 indexed requestId, address indexed addressToScreen, uint256 indexed transferRequestId)'),
-          fromBlock: 'latest',
-        });
+        // Get current block
+        const currentBlock = await this.publicClient.getBlockNumber();
+
+        // Skip if no new blocks
+        if (currentBlock <= this.lastProcessedBlock) {
+          setTimeout(pollForEvents, this.config.pollingInterval || 5000);
+          return;
+        }
+
+        // Get logs from last processed block to current
+        const logs = await this.withRetry(
+          () => this.publicClient.getLogs({
+            address: this.config.oracleContractAddress,
+            event: parseAbiItem('event ScreeningRequested(bytes32 indexed requestId, address indexed addressToScreen, uint256 indexed transferRequestId)'),
+            fromBlock: this.lastProcessedBlock + 1n,
+            toBlock: currentBlock,
+          }),
+          'Fetching screening events'
+        );
+
+        if (logs.length > 0) {
+          console.log(`[Oracle] Found ${logs.length} event(s) in blocks ${this.lastProcessedBlock + 1n} to ${currentBlock}`);
+        }
 
         for (const log of logs) {
           const requestId = log.args.requestId as Hash;
@@ -222,6 +342,11 @@ export class ComplianceOracleService {
             log.args.transferRequestId as bigint
           );
         }
+
+        // Update checkpoint
+        this.lastProcessedBlock = currentBlock;
+        this.saveCheckpoint();
+
       } catch (error) {
         console.error('[Oracle] Error polling for events:', error);
       }
@@ -255,18 +380,21 @@ export class ComplianceOracleService {
       }
 
       // Check if already completed on-chain
-      const request = await this.getScreeningRequest(requestId);
+      const request = await this.withRetry(
+        () => this.getScreeningRequest(requestId),
+        `Fetching request ${requestId.slice(0, 10)}...`
+      );
       if (request.completed) {
         console.log(`[Oracle] Request ${requestId} already completed, skipping`);
         this.processedRequests.add(requestId);
         return;
       }
 
-      // Call Circle Compliance Engine
+      // Call Circle Compliance Engine (with retry)
       console.log(`[Oracle] Screening address ${addressToScreen}...`);
-      const screeningResult = await this.complianceClient.screenAddress(
-        addressToScreen,
-        'ETH' // Default to ETH chain for now
+      const screeningResult = await this.withRetry(
+        () => this.complianceClient.screenAddress(addressToScreen, 'ETH'),
+        `Screening ${addressToScreen.slice(0, 10)}...`
       );
 
       console.log(`[Oracle] Screening result: ${screeningResult.result} (${screeningResult.riskLevel})`);
@@ -277,13 +405,17 @@ export class ComplianceOracleService {
         }
       }
 
-      // Submit result on-chain
-      await this.submitScreeningResult(requestId, screeningResult);
+      // Submit result on-chain (with retry)
+      await this.withRetry(
+        () => this.submitScreeningResult(requestId, screeningResult),
+        `Submitting result for ${requestId.slice(0, 10)}...`
+      );
 
       this.processedRequests.add(requestId);
       console.log(`[Oracle] Request ${requestId} completed successfully`);
     } catch (error) {
       console.error(`[Oracle] Error processing request ${requestId}:`, error);
+      // Don't mark as processed so it can be retried on next run
     }
   }
 

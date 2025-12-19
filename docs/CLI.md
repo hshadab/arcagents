@@ -29,7 +29,7 @@ This creates a configuration file at `~/.arc-agent/config.json`.
 | `arc-agent config init` | Initialize configuration interactively |
 | `arc-agent config show` | Display current configuration |
 | `arc-agent config set-network <network>` | Set network (testnet/mainnet) |
-| `arc-agent config set-key` | Set private key (prompted securely) |
+| `arc-agent config set-key` | Set treasury private key (prompted securely) |
 | `arc-agent config set <key> <value>` | Set arbitrary config value |
 
 ### Configuration File Structure
@@ -38,11 +38,21 @@ This creates a configuration file at `~/.arc-agent/config.json`.
 {
   "network": "testnet",
   "rpcUrl": "https://rpc.testnet.arc.network",
-  "privateKey": "0x...",
-  "defaultAgent": "1",
+  "treasuryKey": "0x...",
   "circleApiKey": "optional-for-compliance"
 }
 ```
+
+### Dual-Network Setup
+
+Arc Agents operates on two networks:
+
+| Network | Purpose | Funding |
+|---------|---------|---------|
+| **Arc Testnet** | Proofs, contracts, identity | [Circle Faucet](https://faucet.circle.com) → "Arc Testnet" |
+| **Base** | x402 service payments | Real USDC or faucet → "Base Sepolia" |
+
+The same treasury address works on both networks (EVM addresses are chain-agnostic).
 
 ---
 
@@ -97,7 +107,7 @@ arc-agent services info https://weather.x402.org
 Service: Weather Oracle
 URL: https://weather.x402.org
 Price: $0.01 USDC/request
-Network: base
+Payment Network: Base
 Pay To: 0x1234...5678
 Category: data
 Description: Real-time weather data for any location
@@ -218,36 +228,60 @@ Eligibility:   ✓ Eligible for transfers
 
 ## Treasury Operations
 
-### `arc-agent fund deposit <agent-id> <amount>`
+Arc Agents uses a **shared treasury** - all agents draw from one wallet.
 
-Deposit USDC into an agent's treasury.
+### `arc-agent treasury setup`
+
+Set up or view the shared treasury wallet.
 
 ```bash
-arc-agent fund deposit 1 10
+arc-agent treasury setup
+```
+
+**Options:**
+| Option | Type | Description |
+|--------|------|-------------|
+| `--generate` | flag | Generate a new treasury wallet |
+| `--import` | flag | Import an existing private key |
+
+**Example:**
+```bash
+# Generate new treasury
+arc-agent treasury setup --generate
+
+# Output:
+✓ Treasury wallet created!
+  Address: 0x1234...5678
+
+  Fund this address on BOTH networks:
+  • Arc Testnet: faucet.circle.com → "Arc Testnet"
+  • Base: Send USDC or faucet → "Base Sepolia"
+```
+
+### `arc-agent treasury balance`
+
+Check treasury balance on all networks.
+
+```bash
+arc-agent treasury balance
 ```
 
 **Output:**
 ```
-Depositing $10.00 USDC to Agent #1...
-✓ Deposit successful!
-  Transaction: 0xabcd...efgh
-  New Balance: $14.50 USDC
+Treasury: 0x1234...5678
+
+Balances:
+  Arc Testnet:  $5.00 USDC
+  Base:         $3.00 USDC
+  Base Sepolia: $10.00 USDC (testnet)
 ```
 
-### `arc-agent fund balance <agent-id>`
+### `arc-agent treasury show`
 
-Check agent treasury balance.
-
-```bash
-arc-agent fund balance 1
-```
-
-### `arc-agent fund withdraw <agent-id> <amount>`
-
-Withdraw USDC from agent treasury (owner only).
+Display treasury address and info.
 
 ```bash
-arc-agent fund withdraw 1 5
+arc-agent treasury show
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Arc Agents
 
-A framework for spawning and managing AI agents with x402 payment capabilities on [Arc L1](https://arc.network).
+A framework for launching and managing AI agents with x402 payment capabilities on [Arc L1](https://arc.network).
 
 Arc Agents can autonomously discover, connect to, and pay for x402-enabled services using USDC.
 
@@ -15,9 +15,9 @@ Arc Agents can autonomously discover, connect to, and pay for x402-enabled servi
 │  │     Web UI      │    │   CLI (arc-     │    │    Runtime      │         │
 │  │   (Next.js)     │    │     agent)      │    │   (Cron Job)    │         │
 │  │                 │    │                 │    │                 │         │
-│  │ • Browse x402   │    │ • Spawn agents  │    │ • Scheduled     │         │
+│  │ • Browse x402   │    │ • Launch agents │    │ • Scheduled     │         │
 │  │ • One-click     │    │ • Fund treasury │    │   execution     │         │
-│  │   spawning      │    │ • Make requests │    │ • Auto-pay      │         │
+│  │   launching     │    │ • Make requests │    │ • Auto-pay      │         │
 │  │ • Dashboard     │    │ • Proof submit  │    │   services      │         │
 │  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘         │
 │           │                      │                      │                   │
@@ -84,24 +84,65 @@ Arc Agents can autonomously discover, connect to, and pay for x402-enabled servi
 
 ## Quick Start
 
-### Web UI
+### Web UI + SNARK Prover
 
 ```bash
 # Install dependencies
 npm install
 
-# Run the UI
+# Build the SNARK prover (first time only, ~10 min)
+cd jolt-atlas-fork && cargo build --release -p arc-prover && cd ..
+
+# Start the SNARK prover (port 3001)
+npm run dev:prover
+
+# In another terminal, start the UI (port 3000)
 npm run dev:ui
 
 # Open http://localhost:3000
 ```
 
+**Services:**
+- **UI**: http://localhost:3000 - Web interface
+- **Prover**: http://localhost:3001 - JOLT-Atlas SNARK prover
+
 The UI lets you:
 - Browse available x402 services from the Bazaar
-- Launch agents for specific services (agents are always tied to a service)
+- **Set up a shared treasury** - All agents draw from one wallet
+- Launch agents for specific services
 - Execute agents manually or on schedule
-- View model inference results and zkML proofs
+- View zkML spending proofs and compliance results
 - Track payments and activity history
+
+### Shared Treasury Model
+
+Arc Agents uses a **shared treasury** - you fund one wallet and all agents draw from it:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SHARED TREASURY                          │
+│                     (0x1234...)                             │
+│                                                             │
+│    Fund once on TWO networks (same address):                │
+│    ├── Arc Testnet USDC → proof attestations & contracts   │
+│    └── Base USDC → x402 service payments                   │
+│                                                             │
+│    ┌──────────┐  ┌──────────┐  ┌──────────┐                │
+│    │ Agent 1  │  │ Agent 2  │  │ Agent 3  │                │
+│    │ (News)   │  │ (Weather)│  │ (AI)     │                │
+│    └────┬─────┘  └────┬─────┘  └────┬─────┘                │
+│         └──────────────┼──────────────┘                     │
+│                        ▼                                    │
+│              All agents pay from treasury                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Setup:**
+1. Click **"Treasury"** button in the header
+2. Generate a new wallet or import an existing private key
+3. Fund the treasury address on both networks:
+   - **Arc Testnet**: [Circle Faucet](https://faucet.circle.com) → select "Arc Testnet"
+   - **Base**: Send USDC on Base, or faucet → "Base Sepolia" for testing
 
 See [UI README](./ui/README.md) for detailed documentation.
 
@@ -117,7 +158,7 @@ arc-agent config init
 # Browse x402 services
 arc-agent services list
 
-# Spawn an agent for a service
+# Launch an agent for a service
 arc-agent create for-service https://weather.x402.org --deposit 1
 
 # Make a paid request
@@ -150,7 +191,7 @@ const client = new ArcAgentClient({
 // Discover x402 services
 const services = await bazaar.listServices({ category: 'ai' });
 
-// Spawn an agent
+// Launch an agent
 const agent = await client.createAgent({
   name: 'my-ai-agent',
   initialDeposit: '10', // USDC
@@ -185,52 +226,84 @@ arc-agent services list --category ai --max-price 0.05
 arc-agent services probe https://api.example.com
 ```
 
-### Agent Types
+### zkML Spending Proofs
 
-Arc supports two types of agents:
+All Arc agents generate **zkML proofs for spending decisions**, providing cryptographic accountability for every x402 payment.
 
-| Type | Workflow | Use Case |
-|------|----------|----------|
-| **Simple Agent** | Probe → Pay → Execute | Data aggregation, scheduled tasks |
-| **ML Agent** | Probe → Model → Prove → Pay | Verifiable AI decisions |
+#### Agent Execution Flow
 
-**Simple agents** call x402 services directly without ML decision-making.
-
-**ML agents** run ONNX models locally and generate JOLT-Atlas zkML proofs *before* payment. The proof verifies the model computed correctly, providing on-chain accountability.
-
-#### ML Agent Execution Flow (Proof-First)
+Every agent generates a zkML proof for their spending decision before making any payment:
 
 ```
-1. PROBE      → Free metadata request to x402 service
-                ↓
-2. INFERENCE  → Run ONNX model on probe data
-                ↓
-3. PROOF      → Generate zkML proof (JOLT-Atlas)
-                ↓
-4. VERIFY     → Local proof verification
-                ↓
-5. DECISION   → Model output >= threshold?
-                │
-                ├─ REJECT → Return result, NO payment made
-                │
-                └─ APPROVE → Continue to payment
-                             ↓
-6. PAY        → USDC transfer on Arc Testnet
-                ↓
-7. EXECUTE    → Fetch service data with payment receipt
+1. PROBE          → Free metadata request to x402 service
+                    ↓
+2. SPENDING MODEL → Run spending ONNX model (price, budget, reputation)
+                    ↓
+3. SPENDING PROOF → Generate zkML SNARK proof (JOLT-Atlas)
+                    ↓
+4. DECISION       → shouldBuy > 0.5?
+                    │
+                    ├─ REJECT → Return result + spending proof, NO payment
+                    │
+                    └─ APPROVE → Continue to payment
+                                 ↓
+5. COMPLIANCE     → Screen recipient wallet (Circle Compliance)
+                    ↓
+6. PAY            → USDC transfer on Base (x402 payment)
+                    ↓
+7. EXECUTE        → Fetch service data with payment receipt
+                    ↓
+8. ATTEST         → Submit spending proof to ArcProofAttestation
 ```
 
-**Key principle**: Proofs are generated BEFORE payment. This ensures:
-- Model execution is verifiable before spending funds
-- Rejected decisions (below threshold) don't incur costs
-- On-chain accountability for all approved actions
+**Key principle**: Every x402 payment has cryptographic accountability:
+- Spending decision is proven with zkML (all agents)
+- Rejected decisions still return their spending proof
+- On-chain attestation via ArcProofAttestation contract
+
+#### Spending Model
+
+The spending model is an ONNX neural network (`/ui/public/models/spending-model.onnx`, 1.7KB):
+
+| Input | Description |
+|-------|-------------|
+| `priceUsdc` | Service price from x402 payment offer |
+| `budgetUsdc` | Treasury balance (on-chain query) |
+| `spentTodayUsdc` | Amount spent today (local tracking) |
+| `dailyLimitUsdc` | Max daily spend policy |
+| `serviceSuccessRate` | Historical success rate (0-1) |
+| `serviceTotalCalls` | Number of times used |
+| `purchasesInCategory` | Recent purchases in category |
+| `timeSinceLastPurchase` | Seconds since last purchase |
+
+**Output**: `[shouldBuy, confidence, riskScore]` (all 0-1 after sigmoid)
+
+#### JOLT-Atlas SNARK Prover
+
+The prover service generates real zero-knowledge proofs using [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas):
+
+```bash
+# Start the SNARK prover service
+cd jolt-atlas-fork
+MODELS_DIR=./arc-prover/models PORT=3001 cargo run --release -p arc-prover
+
+# Or use the convenience script
+npm run dev:prover
+```
+
+**Proof Characteristics:**
+- **Polynomial Commitments**: HyperKZG over BN254 curve
+- **Proof Size**: 45-55KB (real SNARK, not commitment hashes)
+- **Generation Time**: 4-12 seconds depending on model complexity
+- **Verification**: Local verification in <150ms
+- **Security**: Cryptographically sound, publicly verifiable, zero-knowledge capable
 
 ### Agent Lifecycle
 
-1. **Create** - Spawn agent with on-chain identity (ERC-8004)
-2. **Fund** - Deposit USDC into agent's treasury
-3. **Connect** - Discover and connect to x402 services
-4. **Transact** - Agent autonomously pays for services
+1. **Set up Treasury** - Create or import a shared treasury wallet
+2. **Fund Treasury** - Deposit USDC on Arc Testnet + Base (same address)
+3. **Create Agent** - Launch agent connected to an x402 service
+4. **Execute** - Agent calls service, pays from shared treasury
 
 ### Compliance Screening (Dual-Sided)
 
@@ -286,16 +359,27 @@ arcagent/
 │   └── src/
 │       ├── app/
 │       │   ├── api/execute/       # Agent execution API
+│       │   ├── api/zkml/prove/    # zkML proof generation API
 │       │   ├── agents/            # Agent management
-│       │   └── spawn/             # Agent creation
+│       │   └── launch/            # Agent creation
 │       ├── components/
 │       │   ├── AgentExecutionPanel.tsx  # Run controls & results
 │       │   ├── ServiceOutputDisplay.tsx # Service response viewer
-│       │   └── SpawnForm.tsx            # Agent creation form
+│       │   └── LaunchForm.tsx           # Agent creation form
 │       └── lib/
+│           ├── treasury.ts        # Shared treasury management
 │           ├── arcPayment.ts      # Arc Testnet USDC transfers
+│           ├── multiChainPayment.ts # Base USDC transfers (x402)
 │           ├── x402Client.ts      # x402 protocol client
+│           ├── zkmlService.ts     # zkML proof client
 │           └── agentStorage.ts    # Agent persistence
+│
+├── jolt-atlas-fork/    # JOLT-Atlas zkML SNARK prover
+│   ├── arc-prover/     # HTTP prover service (Rust/Axum)
+│   │   ├── src/main.rs           # Prover HTTP server
+│   │   └── models/               # ONNX model files
+│   ├── zkml-jolt-core/ # JOLT zkML core library
+│   └── onnx-tracer/    # ONNX model tracer for JOLT
 │
 ├── contracts/          # Solidity smart contracts
 │   ├── core/
@@ -318,7 +402,7 @@ arcagent/
     └── src/
         └── commands/
             ├── services.ts        # Browse x402 services
-            ├── create.ts          # Spawn agents
+            ├── create.ts          # Launch agents
             ├── fund.ts            # Treasury operations
             ├── call.ts            # Make paid requests
             └── config.ts          # CLI configuration
