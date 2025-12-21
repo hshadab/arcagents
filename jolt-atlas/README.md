@@ -1,3 +1,7 @@
+> **Attribution**: This directory contains JOLT-Atlas, a zkML framework developed by [ICME Labs](https://blog.icme.io/). Arc Agents integrates this technology for demonstration purposes.
+
+---
+
 # JOLT Atlas
 
 JOLT Atlas is a zero-knowledge machine learning (zkML) framework that extends the [JOLT](https://github.com/a16z/jolt) proving system to support ML inference verification from ONNX models. 
