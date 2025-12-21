@@ -207,7 +207,7 @@ The SNARK prover generates real zero-knowledge proofs for ML agent decisions.
 
 ```bash
 # From project root
-cd jolt-atlas-fork
+cd jolt-atlas
 
 # Build (first build ~12 minutes)
 cargo build --release -p arc-prover
@@ -237,11 +237,11 @@ After=network.target
 [Service]
 Type=simple
 User=arc
-WorkingDirectory=/opt/arcagent/jolt-atlas-fork
-Environment=MODELS_DIR=/opt/arcagent/jolt-atlas-fork/arc-prover/models
+WorkingDirectory=/opt/arcagent/jolt-atlas
+Environment=MODELS_DIR=/opt/arcagent/jolt-atlas/arc-prover/models
 Environment=PORT=3001
 Environment=RUST_LOG=info
-ExecStart=/opt/arcagent/jolt-atlas-fork/target/release/arc-prover
+ExecStart=/opt/arcagent/jolt-atlas/target/release/arc-prover
 Restart=always
 RestartSec=10
 
@@ -532,7 +532,7 @@ npx hardhat run scripts/deploy.js --network arcMainnet
 ### "SNARK prover not responding"
 
 - Check prover is running: `curl http://localhost:3001/health`
-- Verify models exist: `ls jolt-atlas-fork/arc-prover/models/*.onnx`
+- Verify models exist: `ls jolt-atlas/arc-prover/models/*.onnx`
 - Check prover logs for errors
 - Ensure 8GB+ RAM available
 

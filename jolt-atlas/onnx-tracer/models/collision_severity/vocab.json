@@ -1,0 +1,342 @@
+{
+  "vocab_mapping": {
+    "impact_force_0": {
+      "index": 0,
+      "feature_type": "impact_force"
+    },
+    "impact_force_1": {
+      "index": 1,
+      "feature_type": "impact_force"
+    },
+    "impact_force_2": {
+      "index": 2,
+      "feature_type": "impact_force"
+    },
+    "impact_force_3": {
+      "index": 3,
+      "feature_type": "impact_force"
+    },
+    "impact_force_4": {
+      "index": 4,
+      "feature_type": "impact_force"
+    },
+    "impact_force_5": {
+      "index": 5,
+      "feature_type": "impact_force"
+    },
+    "impact_force_6": {
+      "index": 6,
+      "feature_type": "impact_force"
+    },
+    "impact_force_7": {
+      "index": 7,
+      "feature_type": "impact_force"
+    },
+    "impact_force_8": {
+      "index": 8,
+      "feature_type": "impact_force"
+    },
+    "impact_force_9": {
+      "index": 9,
+      "feature_type": "impact_force"
+    },
+    "impact_force_10": {
+      "index": 10,
+      "feature_type": "impact_force"
+    },
+    "impact_force_11": {
+      "index": 11,
+      "feature_type": "impact_force"
+    },
+    "impact_force_12": {
+      "index": 12,
+      "feature_type": "impact_force"
+    },
+    "impact_force_13": {
+      "index": 13,
+      "feature_type": "impact_force"
+    },
+    "impact_force_14": {
+      "index": 14,
+      "feature_type": "impact_force"
+    },
+    "impact_force_15": {
+      "index": 15,
+      "feature_type": "impact_force"
+    },
+    "velocity_0": {
+      "index": 16,
+      "feature_type": "velocity"
+    },
+    "velocity_1": {
+      "index": 17,
+      "feature_type": "velocity"
+    },
+    "velocity_2": {
+      "index": 18,
+      "feature_type": "velocity"
+    },
+    "velocity_3": {
+      "index": 19,
+      "feature_type": "velocity"
+    },
+    "velocity_4": {
+      "index": 20,
+      "feature_type": "velocity"
+    },
+    "velocity_5": {
+      "index": 21,
+      "feature_type": "velocity"
+    },
+    "velocity_6": {
+      "index": 22,
+      "feature_type": "velocity"
+    },
+    "velocity_7": {
+      "index": 23,
+      "feature_type": "velocity"
+    },
+    "angle_0": {
+      "index": 24,
+      "feature_type": "angle"
+    },
+    "angle_1": {
+      "index": 25,
+      "feature_type": "angle"
+    },
+    "angle_2": {
+      "index": 26,
+      "feature_type": "angle"
+    },
+    "angle_3": {
+      "index": 27,
+      "feature_type": "angle"
+    },
+    "angle_4": {
+      "index": 28,
+      "feature_type": "angle"
+    },
+    "angle_5": {
+      "index": 29,
+      "feature_type": "angle"
+    },
+    "angle_6": {
+      "index": 30,
+      "feature_type": "angle"
+    },
+    "angle_7": {
+      "index": 31,
+      "feature_type": "angle"
+    },
+    "object_type_0": {
+      "index": 32,
+      "feature_type": "object_type"
+    },
+    "object_type_1": {
+      "index": 33,
+      "feature_type": "object_type"
+    },
+    "object_type_2": {
+      "index": 34,
+      "feature_type": "object_type"
+    },
+    "object_type_3": {
+      "index": 35,
+      "feature_type": "object_type"
+    },
+    "object_type_4": {
+      "index": 36,
+      "feature_type": "object_type"
+    },
+    "object_type_5": {
+      "index": 37,
+      "feature_type": "object_type"
+    },
+    "object_type_6": {
+      "index": 38,
+      "feature_type": "object_type"
+    },
+    "object_type_7": {
+      "index": 39,
+      "feature_type": "object_type"
+    },
+    "damage_zone_0": {
+      "index": 40,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_1": {
+      "index": 41,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_2": {
+      "index": 42,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_3": {
+      "index": 43,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_4": {
+      "index": 44,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_5": {
+      "index": 45,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_6": {
+      "index": 46,
+      "feature_type": "damage_zone"
+    },
+    "damage_zone_7": {
+      "index": 47,
+      "feature_type": "damage_zone"
+    },
+    "robot_load_0": {
+      "index": 48,
+      "feature_type": "robot_load"
+    },
+    "robot_load_1": {
+      "index": 49,
+      "feature_type": "robot_load"
+    },
+    "robot_load_2": {
+      "index": 50,
+      "feature_type": "robot_load"
+    },
+    "robot_load_3": {
+      "index": 51,
+      "feature_type": "robot_load"
+    },
+    "time_since_last_0": {
+      "index": 52,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_1": {
+      "index": 53,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_2": {
+      "index": 54,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_3": {
+      "index": 55,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_4": {
+      "index": 56,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_5": {
+      "index": 57,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_6": {
+      "index": 58,
+      "feature_type": "time_since_last"
+    },
+    "time_since_last_7": {
+      "index": 59,
+      "feature_type": "time_since_last"
+    },
+    "weather_0": {
+      "index": 60,
+      "feature_type": "weather"
+    },
+    "weather_1": {
+      "index": 61,
+      "feature_type": "weather"
+    },
+    "weather_2": {
+      "index": 62,
+      "feature_type": "weather"
+    },
+    "weather_3": {
+      "index": 63,
+      "feature_type": "weather"
+    }
+  },
+  "feature_mapping": {
+    "impact_force": [
+      "impact_force_0",
+      "impact_force_1",
+      "impact_force_2",
+      "impact_force_3",
+      "impact_force_4",
+      "impact_force_5",
+      "impact_force_6",
+      "impact_force_7",
+      "impact_force_8",
+      "impact_force_9",
+      "impact_force_10",
+      "impact_force_11",
+      "impact_force_12",
+      "impact_force_13",
+      "impact_force_14",
+      "impact_force_15"
+    ],
+    "velocity": [
+      "velocity_0",
+      "velocity_1",
+      "velocity_2",
+      "velocity_3",
+      "velocity_4",
+      "velocity_5",
+      "velocity_6",
+      "velocity_7"
+    ],
+    "angle": [
+      "angle_0",
+      "angle_1",
+      "angle_2",
+      "angle_3",
+      "angle_4",
+      "angle_5",
+      "angle_6",
+      "angle_7"
+    ],
+    "object_type": [
+      "object_type_0",
+      "object_type_1",
+      "object_type_2",
+      "object_type_3",
+      "object_type_4",
+      "object_type_5",
+      "object_type_6",
+      "object_type_7"
+    ],
+    "damage_zone": [
+      "damage_zone_0",
+      "damage_zone_1",
+      "damage_zone_2",
+      "damage_zone_3",
+      "damage_zone_4",
+      "damage_zone_5",
+      "damage_zone_6",
+      "damage_zone_7"
+    ],
+    "robot_load": [
+      "robot_load_0",
+      "robot_load_1",
+      "robot_load_2",
+      "robot_load_3"
+    ],
+    "time_since_last": [
+      "time_since_last_0",
+      "time_since_last_1",
+      "time_since_last_2",
+      "time_since_last_3",
+      "time_since_last_4",
+      "time_since_last_5",
+      "time_since_last_6",
+      "time_since_last_7"
+    ],
+    "weather": [
+      "weather_0",
+      "weather_1",
+      "weather_2",
+      "weather_3"
+    ]
+  }
+}

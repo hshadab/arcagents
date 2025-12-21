@@ -143,7 +143,7 @@ npm install
 This takes approximately 10 minutes:
 
 ```bash
-cd jolt-atlas-fork
+cd jolt-atlas
 cargo build --release -p arc-prover
 cd ..
 ```
@@ -329,7 +329,7 @@ arcagent/
 │       ├── oracle-service.ts  # Main oracle
 │       └── circle-compliance.ts # Circle API integration
 │
-├── jolt-atlas-fork/           # JOLT-Atlas SNARK Prover (Rust)
+├── jolt-atlas/           # JOLT-Atlas SNARK Prover (Rust)
 │   ├── arc-prover/            # HTTP prover service
 │   │   ├── src/main.rs        # Axum HTTP server
 │   │   └── models/            # ONNX model files
@@ -577,7 +577,7 @@ BASE_RPC=https://mainnet.base.org
 rustc --version
 
 # Rebuild the prover
-cd jolt-atlas-fork
+cd jolt-atlas
 cargo clean
 cargo build --release -p arc-prover
 ```

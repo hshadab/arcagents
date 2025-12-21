@@ -1,0 +1,66 @@
+{
+  "model_type": "collision_severity_classifier",
+  "input_size": 64,
+  "hidden_size": 32,
+  "output_size": 4,
+  "training_accuracy": 88.28750252723694,
+  "validation_accuracy": 87.30000257492065,
+  "architecture": {
+    "type": "MLP",
+    "layers": [
+      {
+        "type": "Linear",
+        "in_features": 64,
+        "out_features": 32
+      },
+      {
+        "type": "ReLU"
+      },
+      {
+        "type": "Linear",
+        "in_features": 32,
+        "out_features": 16
+      },
+      {
+        "type": "ReLU"
+      },
+      {
+        "type": "Linear",
+        "in_features": 16,
+        "out_features": 4
+      }
+    ]
+  },
+  "feature_buckets": {
+    "impact_force": 16,
+    "velocity": 8,
+    "angle": 8,
+    "object_type": 8,
+    "damage_zone": 8,
+    "robot_load": 4,
+    "time_since_last": 8,
+    "weather": 4
+  },
+  "severity_classes": {
+    "0": {
+      "name": "MINOR",
+      "description": "No footage needed",
+      "price_usd": 0.0
+    },
+    "1": {
+      "name": "MODERATE",
+      "description": "Footage recommended",
+      "price_usd": 0.02
+    },
+    "2": {
+      "name": "SEVERE",
+      "description": "Footage required",
+      "price_usd": 0.05
+    },
+    "3": {
+      "name": "CRITICAL",
+      "description": "Footage + report",
+      "price_usd": 0.1
+    }
+  }
+}
