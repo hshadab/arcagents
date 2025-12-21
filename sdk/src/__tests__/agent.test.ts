@@ -12,6 +12,10 @@ vi.mock('viem', async () => {
     ...actual,
     parseUnits: vi.fn((value: string, decimals: number) => BigInt(parseFloat(value) * 10 ** decimals)),
     formatUnits: vi.fn((value: bigint, decimals: number) => (Number(value) / 10 ** decimals).toString()),
+    decodeEventLog: vi.fn(() => ({
+      eventName: 'AgentCreated',
+      args: { agentId: BigInt(1), owner: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' },
+    })),
   };
 });
 

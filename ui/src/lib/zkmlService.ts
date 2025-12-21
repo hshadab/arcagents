@@ -15,6 +15,7 @@ import { keccak256, toHex, type Hash, type Address } from 'viem';
 import type { InferenceResult } from './onnxInference';
 import { ARC_CONTRACTS } from './constants';
 import { DECISION_MODELS, type DecisionModelId } from './models';
+import { hexToBytes, isValidHash } from './utils/crypto';
 
 /** JOLT-Atlas compatible prover version */
 const PROVER_VERSION = 'jolt-atlas-0.2.0';
@@ -491,17 +492,4 @@ export async function getProofStatus(proofHash: Hash): Promise<{
   }
 }
 
-// Utility functions
-
-function hexToBytes(hex: Hash): Uint8Array {
-  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-function isValidHash(hash: unknown): hash is Hash {
-  return typeof hash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(hash);
-}
+// hexToBytes and isValidHash are now imported from ./utils/crypto

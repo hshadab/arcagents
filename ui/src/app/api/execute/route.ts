@@ -14,6 +14,9 @@ import {
   type SpendingModelOutput,
   DEFAULT_SPENDING_POLICY,
 } from '@/lib/spendingModel';
+import { hexToBytes } from '@/lib/utils/crypto';
+import { validateExecuteRequest } from '@/lib/utils/validation';
+import { checkRateLimit, getRateLimitKey, RATE_LIMITS } from '@/lib/utils/rateLimit';
 
 interface ExecuteRequest {
   agentId: string;
@@ -102,8 +105,44 @@ const PROVER_VERSION = 'jolt-atlas-0.2.0';
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
+  // Rate limiting
+  const rateLimitKey = getRateLimitKey(request, 'execute');
+  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMITS.expensive);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Rate limit exceeded. Please try again later.',
+        retryAfterMs: rateLimitResult.retryAfterMs,
+        durationMs: Date.now() - startTime,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil((rateLimitResult.retryAfterMs || 60000) / 1000)),
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+          'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+        },
+      }
+    );
+  }
+
   try {
-    const body: ExecuteRequest = await request.json();
+    const body = await request.json();
+
+    // Validate request
+    const validation = validateExecuteRequest(body);
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Validation failed: ${validation.errors.join(', ')}`,
+          durationMs: Date.now() - startTime,
+        },
+        { status: 400 }
+      );
+    }
+
     const {
       agentId,
       agentName,
@@ -806,8 +845,6 @@ async function runComplianceCheck(
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
   try {
-    console.log(`[Compliance] Checking: ${sender} -> ${recipient}, ${amount} USDC`);
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS);
 
@@ -821,21 +858,16 @@ async function runComplianceCheck(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`[Compliance] API returned ${response.status}, allowing (fail-open)`);
-      return { approved: true, reason: 'Compliance check unavailable' };
+      // FAIL-CLOSED: Deny when compliance service unavailable
+      return { approved: false, reason: `Compliance service unavailable (HTTP ${response.status})` };
     }
 
     const data = await response.json();
-    if (!data.approved) {
-      console.warn(`[Compliance] REJECTED: ${data.reason}`);
-    } else {
-      console.log(`[Compliance] Approved`);
-    }
-
     return { approved: data.approved, reason: data.reason };
   } catch (error) {
-    console.warn('[Compliance] Check failed, allowing (fail-open):', error);
-    return { approved: true, reason: 'Compliance check failed' };
+    // FAIL-CLOSED: Deny when compliance check fails
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    return { approved: false, reason: `Compliance check failed: ${errorMsg}` };
   }
 }
 
@@ -875,12 +907,4 @@ async function logExecution(
   }
 }
 
-// Utility: Convert hex string to bytes
-function hexToBytes(hex: string): Uint8Array {
-  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
+// hexToBytes is now imported from @/lib/utils/crypto

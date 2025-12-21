@@ -43,3 +43,5 @@ contracts/artifacts/
 # Temporary files
 *.tmp
 *.temp
+jolt-atlas-fork/
+prover

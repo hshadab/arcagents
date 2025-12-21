@@ -19,10 +19,13 @@ describe('X402Client', () => {
         address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
       },
       signTypedData: vi.fn().mockResolvedValue('0xsignature'),
+      writeContract: vi.fn().mockResolvedValue('0xtxhash'),
     };
 
     mockPublicClient = {
       getChainId: vi.fn().mockResolvedValue(5042002),
+      readContract: vi.fn().mockResolvedValue(BigInt(1000000000)), // 1000 USDC balance
+      waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'success' }),
     };
 
     client = new X402Client({
@@ -73,6 +76,9 @@ describe('X402Client', () => {
         })
         .mockResolvedValueOnce({
           status: 200,
+          headers: new Headers({
+            'payment-response': btoa(JSON.stringify({ txHash: '0xtxhash', network: 'base', amount: '10000' })),
+          }),
           json: () => Promise.resolve({ data: 'success' }),
         });
 

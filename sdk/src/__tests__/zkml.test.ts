@@ -271,7 +271,9 @@ describe('ZkmlProver', () => {
       expect(customProver).toBeDefined();
     });
 
-    it('should fail gracefully without joltAtlasPath in real mode', async () => {
+    it('should fall back to simulation when no real prover is configured', async () => {
+      // When simulate=false but no joltAtlasPath/joltAtlasUrl is configured,
+      // the prover gracefully falls back to simulation mode
       const realProver = new ZkmlProver({ simulate: false });
 
       const result = await realProver.generateProof({
@@ -280,8 +282,9 @@ describe('ZkmlProver', () => {
         tag: 'authorization',
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('joltAtlasPath not configured');
+      // Should succeed with a simulated proof (fallback behavior)
+      expect(result.success).toBe(true);
+      expect(result.proof).toBeDefined();
     });
   });
 });

@@ -193,6 +193,7 @@ function getExampleConfig(): AgentRuntimeConfig {
       description: 'Detects profitable DeFi opportunities from pool data',
     },
     schedule: {
+      mode: 'scheduled',
       cron: '0 * * * *', // Every hour
       timezone: 'UTC',
       maxRunsPerDay: 24,

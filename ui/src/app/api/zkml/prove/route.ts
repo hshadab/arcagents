@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { keccak256, toHex, type Hash } from 'viem';
 import { DECISION_MODELS, type DecisionModelId } from '@/lib/models';
+import { hexToBytes, sigmoid, softmax } from '@/lib/utils/crypto';
+import { validateProveRequest, isValidModelId } from '@/lib/utils/validation';
+import { checkRateLimit, getRateLimitKey, RATE_LIMITS } from '@/lib/utils/rateLimit';
 
 // Use require for native modules in Next.js API routes
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -64,12 +67,43 @@ interface ProveResponse {
 export async function POST(request: NextRequest): Promise<NextResponse<ProveResponse>> {
   const startTime = Date.now();
 
-  try {
-    const body: ProveRequest = await request.json();
-    const { modelId, inputs, tag = 'decision' } = body;
+  // Rate limiting
+  const rateLimitKey = getRateLimitKey(request, 'zkml-prove');
+  const rateLimitResult = checkRateLimit(rateLimitKey, RATE_LIMITS.expensive);
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json({
+      success: false,
+      error: 'Rate limit exceeded. Please try again later.',
+      generationTimeMs: Date.now() - startTime,
+    }, { status: 429 });
+  }
 
-    // Validate model ID
-    const modelConfig = DECISION_MODELS[modelId];
+  try {
+    const body = await request.json();
+
+    // Validate request
+    const validation = validateProveRequest(body);
+    if (!validation.valid) {
+      return NextResponse.json({
+        success: false,
+        error: `Validation failed: ${validation.errors.join(', ')}`,
+        generationTimeMs: Date.now() - startTime,
+      }, { status: 400 });
+    }
+
+    const { modelId, inputs, tag = 'decision' } = body as ProveRequest;
+
+    // SECURITY: Validate model ID against whitelist to prevent path traversal
+    if (!isValidModelId(modelId)) {
+      return NextResponse.json({
+        success: false,
+        error: `Invalid model ID: ${modelId}. Must be one of the allowed models.`,
+        generationTimeMs: Date.now() - startTime,
+      }, { status: 400 });
+    }
+
+    // Validate model ID exists in config
+    const modelConfig = DECISION_MODELS[modelId as DecisionModelId];
     if (!modelConfig) {
       return NextResponse.json({
         success: false,
@@ -78,9 +112,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<ProveResp
       });
     }
 
-    // Get model path
+    // Get model path - use basename to ensure no path traversal
     const modelsDir = path.join(process.cwd(), 'public', 'models');
-    const modelPath = path.join(modelsDir, `${modelId}.onnx`);
+    const safeModelId = path.basename(modelId); // Extra safety
+    const modelPath = path.join(modelsDir, `${safeModelId}.onnx`);
+
+    // Verify path is within models directory
+    const resolvedPath = path.resolve(modelPath);
+    if (!resolvedPath.startsWith(path.resolve(modelsDir))) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid model path',
+        generationTimeMs: Date.now() - startTime,
+      }, { status: 400 });
+    }
 
     if (!fs.existsSync(modelPath)) {
       return NextResponse.json({
@@ -317,22 +362,4 @@ function prepareInputs(inputs: Record<string, unknown> | number[], targetSize: n
   return features.slice(0, targetSize);
 }
 
-function hexToBytes(hex: string): Uint8Array {
-  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-function sigmoid(x: number): number {
-  return 1 / (1 + Math.exp(-x));
-}
-
-function softmax(arr: number[]): number[] {
-  const maxVal = Math.max(...arr);
-  const expArr = arr.map(v => Math.exp(v - maxVal));
-  const sumExp = expArr.reduce((a, b) => a + b, 0);
-  return expArr.map(v => v / sumExp);
-}
+// hexToBytes, sigmoid, softmax are now imported from @/lib/utils/crypto

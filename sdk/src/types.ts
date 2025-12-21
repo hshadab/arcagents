@@ -174,6 +174,10 @@ export interface PaymentRequirement {
 export interface PaymentResult {
   success: boolean;
   transactionHash?: Hash;
+  /** Amount paid in atomic units */
+  amount?: string;
+  /** Network where payment was made */
+  network?: string;
   settlement?: {
     network: string;
     txHash: Hash;
