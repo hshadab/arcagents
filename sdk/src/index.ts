@@ -80,6 +80,9 @@ export {
   isZeroAddress,
 } from './config';
 
+// Chain definitions (proper viem Chain objects)
+export { arcTestnet, arcMainnet } from './chains';
+
 // Decision Models exports
 export {
   DECISION_MODELS,

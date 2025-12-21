@@ -16,7 +16,7 @@
     "build:sdk": "npm run build --workspace=sdk",
     "build:cli": "npm run build --workspace=cli",
     "build:ui": "npm run build --workspace=ui",
-    "build:contracts": "npm run compile --workspace=contracts",
+    "build:contracts": "npm run build --workspace=contracts",
     "build:runtime": "npm run build --workspace=runtime",
     "build:oracle": "npm run build --workspace=oracle",
     "build:prover": "cd prover && cargo build --release",

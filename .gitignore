@@ -50,3 +50,12 @@ jolt-atlas/target/
 jolt-atlas/arc-prover/target/
 *.rlib
 *.rmeta
+
+# ESLint
+.eslintcache
+
+# Turborepo (if added)
+.turbo/
+
+# Lerna debug log
+lerna-debug.log

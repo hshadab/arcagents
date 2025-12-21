@@ -18,6 +18,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { ZkmlProof, ProofMetadata, ProofTag } from './types.js';
+import { arcTestnet } from '../chains.js';
 
 // ArcProofAttestation ABI (minimal for submission)
 const ARC_PROOF_ATTESTATION_ABI = [
@@ -82,15 +83,7 @@ const ARC_PROOF_ATTESTATION_ABI = [
   },
 ] as const;
 
-// Arc testnet chain config
-const ARC_TESTNET_CHAIN = {
-  id: 5042002,
-  name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-  rpcUrls: {
-    default: { http: ['https://rpc-testnet.arc.circle.com'] },
-  },
-} as const;
+// Use imported chain definition from chains.ts
 
 export interface AttestationConfig {
   /** ArcProofAttestation contract address */
@@ -129,18 +122,18 @@ export interface ProofStatusResult {
  */
 export class ProofAttestation {
   private contractAddress: Address;
-  private publicClient: any; // Use any to avoid complex viem type issues
-  private walletClient: any = null;
+  private publicClient: PublicClient;
+  private walletClient: WalletClient | null = null;
   private validatorAddress: Address;
   private rpcUrl: string;
 
   constructor(config: AttestationConfig) {
     this.contractAddress = config.contractAddress;
     this.validatorAddress = config.validatorAddress || config.contractAddress;
-    this.rpcUrl = config.rpcUrl || ARC_TESTNET_CHAIN.rpcUrls.default.http[0];
+    this.rpcUrl = config.rpcUrl || arcTestnet.rpcUrls.default.http[0];
 
     this.publicClient = createPublicClient({
-      chain: ARC_TESTNET_CHAIN as any,
+      chain: arcTestnet,
       transport: http(this.rpcUrl),
     });
 
@@ -150,7 +143,7 @@ export class ProofAttestation {
       const account = privateKeyToAccount(config.privateKey as `0x${string}`);
       this.walletClient = createWalletClient({
         account,
-        chain: ARC_TESTNET_CHAIN as any,
+        chain: arcTestnet,
         transport: http(this.rpcUrl),
       });
     }
@@ -209,7 +202,7 @@ export class ProofAttestation {
         to: this.contractAddress,
         data,
         account: this.walletClient.account,
-        chain: ARC_TESTNET_CHAIN as any,
+        chain: arcTestnet,
       });
 
       // Wait for confirmation
