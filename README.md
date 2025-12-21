@@ -6,7 +6,7 @@ A comprehensive framework for launching and managing autonomous AI agents with i
 
 **This is a demonstration project and is not intended for production use.**
 
-Arc Agents showcases how zkML proofs can provide cryptographic accountability for autonomous agent spending. The code is provided as-is for educational and research purposes. Use at your own risk.
+Arc Agents showcases how zkML proofs can provide cryptographic accountability for autonomous agent spending.
 
 ### Third-Party Technology
 
