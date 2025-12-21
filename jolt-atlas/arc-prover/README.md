@@ -170,7 +170,7 @@ Health check.
 
 ## Performance
 
-Actual benchmark results using HyperKZG polynomial commitments over BN254:
+Estimated benchmark results using HyperKZG polynomial commitments over BN254 (not verified by ICME Labs):
 
 | Model | Input Shape | Proof Time | Proof Size | Verify Time |
 |-------|-------------|-----------|------------|-------------|
