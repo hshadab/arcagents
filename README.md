@@ -1,6 +1,6 @@
 # Arc Agents
 
-A comprehensive framework for launching and managing autonomous AI agents with integrated x402 payment capabilities on the [Arc L1 blockchain](https://arc.network).
+A comprehensive framework for launching and managing autonomous AI agents with integrated x402 payment capabilities on the [Arc L1 blockchain](https://arc.network). This is a demonstration project and is not intended for production use.
 
 ## What is Arc Agents?
 
