@@ -2,16 +2,6 @@
 
 A comprehensive framework for launching and managing autonomous AI agents with integrated x402 payment capabilities on the [Arc L1 blockchain](https://arc.network).
 
-## ⚠️ Project Status
-
-**This is a demonstration project and is not intended for production use.**
-
-Arc Agents showcases how zkML proofs can provide cryptographic accountability for autonomous agent spending.
-
-### Third-Party Technology
-
-This project integrates **JOLT-Atlas**, a zkML proving system developed by [ICME Labs](https://blog.icme.io/). Arc Agents is not created by, affiliated with, or endorsed by ICME Labs—we are building on top of their open zkML infrastructure. See [`jolt-atlas-fork/LICENSE`](./jolt-atlas-fork/LICENSE) for ICME Labs' licensing terms.
-
 ## What is Arc Agents?
 
 Arc Agents enables you to deploy autonomous AI agents that can discover, connect to, and pay for services across the internet using cryptocurrency. What makes Arc Agents unique is its **cryptographic accountability** system: every spending decision an agent makes is backed by a zero-knowledge proof (zkML SNARK), providing mathematical guarantees that the agent followed its programmed rules.
