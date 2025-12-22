@@ -94,7 +94,7 @@ def main():
     print(f"Model size: {size} bytes")
 
     # Also copy to prover
-    prover_dir = os.path.join(os.path.dirname(__file__), "..", "..", "jolt-atlas", "arc-prover", "models")
+    prover_dir = os.path.join(os.path.dirname(__file__), "..", "..", "jolt-atlas-fork", "arc-prover", "models")
     if os.path.exists(prover_dir):
         import shutil
         shutil.copy(output_path, prover_dir)

@@ -26,7 +26,7 @@ proofCommand
   .requiredOption('-i, --inputs <path>', 'Path to JSON file with model inputs')
   .requiredOption('-t, --tag <type>', 'Proof type: authorization, compliance, or collision_severity')
   .option('-o, --output <path>', 'Output path for generated proof (default: ./proof.json)')
-  .option('--jolt-atlas <path>', 'Path to jolt-atlas installation (enables real proof generation)')
+  .option('--jolt-atlas <path>', 'Path to jolt-atlas-fork directory (enables real proof generation)')
   .option('--simulate', 'Use simulation mode (default if --jolt-atlas not provided)')
   .action(async (options) => {
     const spinner = ora('Generating zkML proof...').start();

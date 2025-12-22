@@ -102,6 +102,16 @@ Add `--format chrome` if you want a tracing JSON for Chrome's `chrome://tracing`
    cargo run --example authorization
    ```
 
+## Limitations
+
+This integration has the following known limitations:
+
+- **Batch size must be 1**: Models must use input shape `[1, ...]`. Batch processing with multiple inputs (e.g., `[N, ...]` where N > 1) will fail or produce incorrect results.
+- **Limited einsum patterns**: Only certain matrix multiplication patterns are fully supported. Vector-matrix operations using `k,kn->n` pattern may produce incorrect results.
+- **Single-sample inference only**: Designed for one input at a time, not batched inference.
+
+These limitations are acceptable for the Arc Agents spending proof demo, which uses single-sample inference with a simple MLP model.
+
 ## Acknowledgments
 
 Thanks to the Jolt team for their foundational work. We are standing on the shoulders of giants.

@@ -84,7 +84,7 @@ CIRCLE_API_KEY=your_circle_api_key
 **Running the Prover:**
 ```bash
 # From project root
-cd jolt-atlas
+cd jolt-atlas-fork
 MODELS_DIR=./arc-prover/models PORT=3001 cargo run --release -p arc-prover
 ```
 

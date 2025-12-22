@@ -264,6 +264,16 @@ If proofs are taking much longer:
 - Ensure using release build (`cargo build --release`)
 - Check memory availability (5-6GB required)
 
+## Limitations
+
+This prover has the following known limitations:
+
+- **Batch size must be 1**: Input shape must be `[1, ...]`. Batched inputs (e.g., `[N, ...]` where N > 1) will panic or produce incorrect proofs.
+- **Simple MLP models only**: Tested with feedforward networks using MatMul → Add → ReLU patterns. Complex architectures (transformers, attention layers with batch > 1) are not supported.
+- **Single-sample inference**: Designed for proving one input at a time.
+
+The included `spending-model.onnx` is compatible with these constraints.
+
 ## License
 
 MIT

@@ -18,8 +18,8 @@ const PROVER_VERSION = 'jolt-atlas-0.2.0';
  */
 export interface ProverConfig {
   /**
-   * Path to jolt-atlas installation directory
-   * Clone from: https://github.com/ICME-Lab/jolt-atlas
+   * Path to jolt-atlas-fork installation directory
+   * Use the included fork: ./jolt-atlas-fork
    */
   joltAtlasPath?: string;
   /**
@@ -39,9 +39,8 @@ export interface ProverConfig {
  * Generates zero-knowledge proofs for ML model inference using JOLT-Atlas.
  *
  * JOLT-Atlas is a Rust-native library. To generate real proofs:
- * 1. Clone: git clone https://github.com/ICME-Lab/jolt-atlas
- * 2. Build: cd jolt-atlas && cargo build --release
- * 3. Set joltAtlasPath in config
+ * 1. Build: cd jolt-atlas-fork && cargo build --release
+ * 2. Set joltAtlasPath in config (or use joltAtlasUrl for HTTP service)
  *
  * @example
  * ```typescript
@@ -54,9 +53,9 @@ export interface ProverConfig {
  *   simulate: false,
  * });
  *
- * // Real proof generation via CLI (requires jolt-atlas installed)
+ * // Real proof generation via CLI (requires jolt-atlas-fork built)
  * const prover = new ZkmlProver({
- *   joltAtlasPath: '/path/to/jolt-atlas',
+ *   joltAtlasPath: './jolt-atlas-fork',
  *   simulate: false,
  * });
  *
@@ -300,9 +299,8 @@ export class ZkmlProver {
   /**
    * Call JOLT-Atlas CLI for proof generation
    *
-   * Requires jolt-atlas to be cloned and built:
-   * - git clone https://github.com/ICME-Lab/jolt-atlas
-   * - cd jolt-atlas && cargo build --release
+   * Requires jolt-atlas-fork to be built:
+   * - cd jolt-atlas-fork && cargo build --release
    *
    * Uses the profile command in zkml-jolt-core:
    * - cargo run -r -- profile --name <model-name> --format default
@@ -320,7 +318,7 @@ export class ZkmlProver {
     if (!this.joltAtlasPath) {
       return {
         success: false,
-        error: 'joltAtlasPath not configured. Set the path to your jolt-atlas installation.',
+        error: 'joltAtlasPath not configured. Set the path to jolt-atlas-fork.',
       };
     }
 

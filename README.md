@@ -10,7 +10,7 @@ Arc Agents showcases how zkML proofs can provide cryptographic accountability fo
 
 ### Third-Party Technology
 
-This project integrates **JOLT-Atlas**, a zkML proving system developed by [ICME Labs](https://blog.icme.io/). Arc Agents is not created by, affiliated with, or endorsed by ICME Labs—we are building on top of their open zkML infrastructure. See [`jolt-atlas/LICENSE`](./jolt-atlas/LICENSE) for ICME Labs' licensing terms.
+This project integrates **JOLT-Atlas**, a zkML proving system developed by [ICME Labs](https://blog.icme.io/). Arc Agents is not created by, affiliated with, or endorsed by ICME Labs—we are building on top of their open zkML infrastructure. See [`jolt-atlas-fork/LICENSE`](./jolt-atlas-fork/LICENSE) for ICME Labs' licensing terms.
 
 ## What is Arc Agents?
 
