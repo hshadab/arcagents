@@ -1,4 +1,4 @@
-> **Attribution**: This directory contains JOLT-Atlas, a zkML framework developed by [ICME Labs](https://blog.icme.io/). Arc Agents integrates this technology for demonstration purposes.
+> **Attribution**: This directory contains a fork of [JOLT-Atlas](https://github.com/ICME-Lab/jolt-atlas), a zkML framework developed by [ICME Labs](https://blog.icme.io/). Arc Agents integrates this technology for demonstration purposes.
 
 ---
 
